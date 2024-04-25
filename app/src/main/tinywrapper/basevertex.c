@@ -119,6 +119,35 @@ static void restore_state(GLuint element_buffer) {
     es3_functions.glBindBuffer(GL_SHADER_STORAGE_BUFFER, current_context->bound_buffers[get_buffer_index(GL_SHADER_STORAGE_BUFFER)]);
 }
 
+void glDrawElementsBaseVertex_inner(basevertex_renderer_t *renderer, GLenum mode,
+                                    GLsizei count,
+                                    GLenum type,
+                                    void *indices,
+                                    GLint basevertex,
+                                    GLuint elementbuffer) {
+    es3_functions.glBindBuffer(GL_SHADER_STORAGE_BUFFER, renderer->computeIndexBuffer);
+    es3_functions.glBufferData(GL_SHADER_STORAGE_BUFFER, count * (GLint)sizeof(GLuint), NULL, GL_DYNAMIC_DRAW);
+    es3_functions.glBindBuffer(GL_SHADER_STORAGE_BUFFER, renderer->computeMetaBuffer);
+    data_buffer_t buffer_info;
+    buffer_info.baseVertex = basevertex;
+    buffer_info.elementCount = count;
+    buffer_info.inputBitWidth = type_bits(type);
+    es3_functions.glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(data_buffer_t), &buffer_info);
+    es3_functions.glUseProgram(renderer->computeProgram);
+
+    uintptr_t offset = (uintptr_t)indices;
+
+    es3_functions.glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 0, elementbuffer, (GLintptr)offset, count *
+                                                                                                  type_bytes(type));
+    es3_functions.glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, renderer->computeIndexBuffer);
+    es3_functions.glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, renderer->computeMetaBuffer);
+    es3_functions.glDispatchCompute((count + (256-1))/256, 1, 1);
+
+    es3_functions.glUseProgram(current_context->program);
+    es3_functions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, renderer->computeIndexBuffer);
+    es3_functions.glDrawElements(mode, count, GL_UNSIGNED_INT, NULL);
+}
+
 void glDrawElementsBaseVertex(GLenum mode,
                               GLsizei count,
                               GLenum type,
@@ -135,42 +164,44 @@ void glDrawElementsBaseVertex(GLenum mode,
         return;
     }
 
-    es3_functions.glBindBuffer(GL_SHADER_STORAGE_BUFFER, renderer->computeIndexBuffer);
-    es3_functions.glBufferData(GL_SHADER_STORAGE_BUFFER, count * (GLint)sizeof(GLuint), NULL, GL_DYNAMIC_DRAW);
-    es3_functions.glBindBuffer(GL_SHADER_STORAGE_BUFFER, renderer->computeMetaBuffer);
-    data_buffer_t buffer_info;
-    buffer_info.baseVertex = basevertex;
-    buffer_info.elementCount = count;
-    buffer_info.inputBitWidth = type_bits(type);
-    es3_functions.glBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(data_buffer_t), &buffer_info);
-    es3_functions.glUseProgram(renderer->computeProgram);
-
-    uintptr_t offset = (uintptr_t)indices;
-
-    es3_functions.glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 0, elementbuffer, (GLintptr)offset, count *
-            type_bytes(type));
-    es3_functions.glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, renderer->computeIndexBuffer);
-    es3_functions.glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, renderer->computeMetaBuffer);
-    es3_functions.glDispatchCompute((count + (256-1))/256, 1, 1);
-
-    es3_functions.glUseProgram(current_context->program);
-    es3_functions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, renderer->computeIndexBuffer);
-    es3_functions.glDrawElements(mode, count, GL_UNSIGNED_INT, NULL);
+    glDrawElementsBaseVertex_inner(renderer, mode, count, type, indices, basevertex, elementbuffer);
 
     restore_state(elementbuffer);
 }
 
 
-/*void glMultiDrawElementsBaseVertex(GLenum mode,
+
+void glMultiDrawElementsBaseVertex(GLenum mode,
  const GLsizei *count,
                                    GLenum type,
                                    const void * const *indices,
                                    GLsizei drawcount,
                                    const GLint *basevertex) {
-    for(GLsizei i = 0; i < drawcount; i++) {
-        glDrawElementsBaseVertex(mode, count[i], type, (void*)indices[i], basevertex[i]);
+    if(!current_context) return;
+    basevertex_renderer_t *renderer = &current_context->basevertex;
+    if(!renderer->ready) return;
+    GLint elementbuffer;
+    es3_functions.glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &elementbuffer);
+    if(elementbuffer == 0) {
+        // I am not bothered enough to implement this.
+        printf("tinywrapper: Base vertex draws without element buffer are not supported\n");
+        return;
     }
-}*/
+
+    for(GLsizei i = 0; i < drawcount; i++) {
+        glDrawElementsBaseVertex_inner(renderer, mode, count[i], type, (void*)indices[i], basevertex[i], elementbuffer);
+    }
+
+    restore_state(elementbuffer);
+
+}
+// TODO: Figure out how to fix the proper way of doing it
+/*
+static void render_out( basevertex_renderer_t *renderer, GLenum mode, GLsizei inserted_count) {
+    es3_functions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, renderer->computeIndexBuffer);
+    es3_functions.glUseProgram(current_context->program);
+    es3_functions.glDrawElements(mode, inserted_count, GL_UNSIGNED_INT, NULL);
+}
 
 void glMultiDrawElementsBaseVertex( 	GLenum mode,
                                        const GLsizei *count,
@@ -191,14 +222,14 @@ void glMultiDrawElementsBaseVertex( 	GLenum mode,
     GLsizei total_count = 0;
     for (int i = 0; i < drawcount; i++) total_count += count[i];
     es3_functions.glBindBuffer(GL_SHADER_STORAGE_BUFFER, renderer->computeIndexBuffer);
-    es3_functions.glBufferData(GL_SHADER_STORAGE_BUFFER, total_count * 4, NULL, GL_DYNAMIC_DRAW);
+    es3_functions.glBufferData(GL_SHADER_STORAGE_BUFFER, total_count * 4, NULL, GL_STREAM_DRAW);
     es3_functions.glBindBuffer(GL_SHADER_STORAGE_BUFFER, renderer->computeMetaBuffer);
     es3_functions.glUseProgram(renderer->computeProgram);
+    es3_functions.glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, renderer->computeMetaBuffer, 0, sizeof(data_buffer_t));
     data_buffer_t buffer_info;
     buffer_info.inputBitWidth = type_bits(type);
     GLint current_type_bytes = type_bytes(type);
     GLsizei inserted_count = 0;
-    es3_functions.glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     for (int i = 0; i < drawcount; i++) {
         GLsizei local_count = count[i];
         uintptr_t local_indices = (uintptr_t)indices[i];
@@ -210,16 +241,9 @@ void glMultiDrawElementsBaseVertex( 	GLenum mode,
         es3_functions.glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
         es3_functions.glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 0, elementbuffer, (GLintptr)local_indices, local_count * current_type_bytes);
         es3_functions.glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 1, renderer->computeIndexBuffer, inserted_count * 4, local_count * 4);
-        es3_functions.glBindBufferRange(GL_SHADER_STORAGE_BUFFER, 2, renderer->computeMetaBuffer, 0, sizeof(data_buffer_t));
-        GLint temp;
-        es3_functions.glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &temp);
         es3_functions.glDispatchCompute((local_count + (256-1))/256, 1, 1);
-
         inserted_count += local_count;
     }
-    es3_functions.glFlush();
-    es3_functions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, renderer->computeIndexBuffer);
-    es3_functions.glUseProgram(current_context->program);
-    es3_functions.glDrawElements(mode, inserted_count, GL_UNSIGNED_INT, NULL);
+    render_out(renderer, mode, inserted_count);
     restore_state(elementbuffer);
-}
+}*/

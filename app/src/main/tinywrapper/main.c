@@ -132,26 +132,8 @@ const GLubyte* glGetString(GLenum name) {
 }
 
 void glEnable(GLenum cap) {
-    //if(!current_context || cap == GL_DEBUG_OUTPUT) return;
+    if(!current_context || cap == GL_DEBUG_OUTPUT) return;
     es3_functions.glEnable(cap);
-}
-
-void glMultiDrawArrays( GLenum mode, GLint *first, GLsizei *count, GLsizei primcount )
-{
-    if(!current_context) return;
-    for (int i = 0; i < primcount; i++) {
-        if (count[i] > 0)
-            es3_functions.glDrawArrays(mode, first[i], count[i]);
-    }
-}
-
-void glMultiDrawElements( GLenum mode, GLsizei *count, GLenum type, const void * const *indices, GLsizei primcount )
-{
-    if(!current_context) return;
-    for (int i = 0; i < primcount; i++) {
-        if (count[i] > 0)
-            es3_functions.glDrawElements(mode, count[i], type, indices[i]);
-    }
 }
 
 int get_buffer_index(GLenum buffer) {

@@ -95,15 +95,20 @@ void glLinkProgram(GLuint program) {
         insert_fragout_pos(new_source, colorbind, i);
         changesMade = true;
     }
-    if(!changesMade) goto fallthrough;
+    if(!changesMade) {
+        free(new_source);
+        goto fallthrough;
+    }
     const GLchar* const_source = (const GLchar*)new_source;
     GLuint patched_shader = es3_functions.glCreateShader(GL_FRAGMENT_SHADER);
     if(patched_shader == 0) {
+        free(new_source);
         printf("tinywrapper: failed to initialize patched shader\n");
         goto fallthrough;
     }
     es3_functions.glShaderSource(patched_shader, 1, &const_source, NULL);
     es3_functions.glCompileShader(patched_shader);
+    free(new_source);
     GLint compileStatus;
     es3_functions.glGetShaderiv(patched_shader, GL_COMPILE_STATUS, &compileStatus);
     if(compileStatus != GL_TRUE) {
@@ -167,7 +172,7 @@ void glShaderSource(GLuint shader, GLsizei count, const GLchar *const*string, co
 
 #undef SRC_LEN
     GLchar* new_source = optimize_shader(target_string, shader_info->shader_type == GL_VERTEX_SHADER, 330, 300);
-    printf("\n\n\nShader Result\n%s\n\n\n", new_source);
+    //printf("\n\n\nShader Result\n%s\n\n\n", new_source);
     if(shader_info->source != NULL) free((void*)shader_info->source);
     shader_info->source = new_source;
     es3_functions.glShaderSource(shader, 1, &shader_info->source, 0);

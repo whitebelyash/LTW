@@ -60,6 +60,7 @@ typedef struct {
     EGLContext phys_context;
     bool context_rdy;
     basevertex_renderer_t basevertex;
+    GLuint multidraw_element_buffer;
     framebuffer_copier_t framebuffer_copier;
     unordered_map* shader_map;
     unordered_map* program_map;

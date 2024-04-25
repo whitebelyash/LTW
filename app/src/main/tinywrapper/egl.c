@@ -64,6 +64,7 @@ static void init_incontext(context_t* tw_context) {
     }
     basevertex_init(tw_context);
     buffer_copier_init(tw_context);
+    es3_functions.glGenBuffers(1, &tw_context->multidraw_element_buffer);
 }
 
 EGLContext eglCreateContext(EGLDisplay dpy, EGLConfig config, EGLContext share_context, const EGLint *attrib_list) {
