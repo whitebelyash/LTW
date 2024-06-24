@@ -21,6 +21,11 @@ void glMultiDrawElementsBaseVertex( 	GLenum mode,
 void glBindFragDataLocation(GLuint program,
                             GLuint colorNumber,
                             const char * name);
+void glGetTexImage( 	GLenum target,
+                       GLint level,
+                       GLenum format,
+                       GLenum type,
+                       void * pixels);
 
 GLESOVERRIDE(glClearDepth)
 GLESOVERRIDE(glMapBuffer)
@@ -56,3 +61,4 @@ GLESOVERRIDE(glTexSubImage2D)
 GLESOVERRIDE(glCopyTexSubImage2D)
 GLESOVERRIDE(glTexParameteri)
 GLESOVERRIDE(glBindFragDataLocation)
+GLESOVERRIDE(glGetTexImage)

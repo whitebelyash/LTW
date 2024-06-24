@@ -47,8 +47,9 @@ static GLenum get_target_query_param(GLenum target) {
         case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
         case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
             return GL_TEXTURE_BINDING_CUBE_MAP;
+        default:
+            return GL_NONE;
     }
-    return GL_NONE;
 }
 
 static void buffer_copier_release(GLenum target, GLint level, GLint x, GLint y, GLsizei w, GLsizei h) {
@@ -64,6 +65,14 @@ static void buffer_copier_release(GLenum target, GLint level, GLint x, GLint y, 
     es3_functions.glBlitFramebuffer(0, 0, w, h, x, y, x+w, y+h, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
     es3_functions.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, current_context->draw_framebuffer);
     es3_functions.glBindFramebuffer(GL_READ_FRAMEBUFFER, current_context->read_framebuffer);
+}
+
+void glGetTexImage( 	GLenum target,
+                       GLint level,
+                       GLenum format,
+                       GLenum type,
+                       void * pixels) {
+    printf("glGetTexImage(%x, %i, %x, %x, %p)\n", target, level, format, type, pixels);
 }
 
 void glReadPixels(GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLvoid * data) {

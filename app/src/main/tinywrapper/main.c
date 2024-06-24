@@ -125,7 +125,7 @@ const GLubyte* glGetString(GLenum name) {
         case GL_VERSION:
             return (const GLubyte*)"3.0 tinywrapper";
         case GL_SHADING_LANGUAGE_VERSION:
-            return (const GLubyte*)"150 tinywrapper";
+            return (const GLubyte*)"1.50 tinywrapper";
         default:
             return es3_functions.glGetString(name);
     }
@@ -146,6 +146,7 @@ int get_buffer_index(GLenum buffer) {
         case GL_TRANSFORM_FEEDBACK_BUFFER: return 5;
         case GL_UNIFORM_BUFFER: return 6;
         case GL_SHADER_STORAGE_BUFFER: return 7;
+        case GL_DRAW_INDIRECT_BUFFER: return 8;
         default: return -1;
     }
 }

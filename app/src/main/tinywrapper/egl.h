@@ -10,16 +10,14 @@
 #include "proc.h"
 #include "unordered_map/unordered_map.h"
 
-#define MAX_BOUND_BUFFERS 8
+#define MAX_BOUND_BUFFERS 9
 #define MAX_BOUND_BASEBUFFERS 4
 #define MAX_DRAWBUFFERS 8
 #define MAX_FBTARGETS 8
 
 typedef struct {
     bool ready;
-    GLuint computeIndexBuffer;
-    GLuint computeMetaBuffer;
-    GLuint computeProgram;
+    GLuint indirectRenderBuffer;
 } basevertex_renderer_t;
 
 typedef struct {
