@@ -135,8 +135,10 @@ char * IR_TO_GLSL::Convert(
 
 	if (state)
 	{
+        bool print_precision = false;
         if(state->es_shader && state->language_version >= 300){
-            res.append("#version %i es\nprecision %s float;\nprecision %s int;\n", state->language_version, "highp", "highp");
+            res.append("#version %i es\n", state->language_version);
+            print_precision = true;
         }
         else
 		    res.append("#version %i\n", state->language_version);
@@ -169,6 +171,27 @@ char * IR_TO_GLSL::Convert(
 			res.append("#extension GL_ARB_shader_bit_encoding : enable\n");
 		if (state->EXT_texture_array_enable)
 			res.append("#extension GL_EXT_texture_array : enable\n");
+
+        // Search for internal GL variables and enable extensions based on them
+        foreach_in_list(ir_instruction, ir, instructions)
+        {
+            // Skip non-variables
+            if(ir->ir_type != ir_type_variable) continue;
+            auto* var = (ir_variable*)ir;
+            // Skip non-internal variables
+            if(strstr(var->name, "gl_") != var->name) continue;
+            const char* name = var->name;
+            // If gl_ClipDistance or gl_CullDistance is in use, enable the corresponding GLES extension
+            if((strstr(name, "gl_ClipDistance") != nullptr || strstr(name, "gl_CullDistance") != nullptr) && !state->EXT_clip_cull_distance_enable) {
+                state->EXT_clip_cull_distance_enable = true;
+                res.append("#extension GL_EXT_clip_cull_distance : enable\n");
+            }
+
+        }
+
+        if(print_precision) {
+            res.append("precision %s float;\nprecision %s int;\n", "highp", "highp");
+        }
 
 		for (unsigned i = 0; i < state->num_user_structures; i++)
 		{

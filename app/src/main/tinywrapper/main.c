@@ -236,6 +236,20 @@ void glGetIntegerv(GLenum pname, GLint* data) {
     }
 }
 
+void glGetQueryObjectiv( 	GLuint id,
+                            GLenum pname,
+                            GLint * params) {
+    if(!current_context) return;
+    // This is not recommended but i don't care
+    es3_functions.glGetQueryObjectuiv(id, pname, (GLuint*)params);
+}
+
+void glDepthRange(GLdouble nearVal,
+                  GLdouble farVal) {
+    if(!current_context) return;
+    es3_functions.glDepthRangef((GLfloat)nearVal, (GLfloat)farVal);
+}
+
 void glDebugMessageControl( 	GLenum source,
                                GLenum type,
                                GLenum severity,

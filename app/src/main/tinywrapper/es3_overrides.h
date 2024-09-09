@@ -27,6 +27,13 @@ void glGetTexImage( 	GLenum target,
                        GLenum type,
                        void * pixels);
 
+void glGetQueryObjectiv( 	GLuint id,
+                            GLenum pname,
+                            GLint * params);
+
+void glDepthRange(GLdouble nearVal,
+                  GLdouble farVal);
+
 GLESOVERRIDE(glClearDepth)
 GLESOVERRIDE(glMapBuffer)
 GLESOVERRIDE(glGetTexLevelParameteriv)
@@ -62,3 +69,5 @@ GLESOVERRIDE(glCopyTexSubImage2D)
 GLESOVERRIDE(glTexParameteri)
 GLESOVERRIDE(glBindFragDataLocation)
 GLESOVERRIDE(glGetTexImage)
+GLESOVERRIDE(glGetQueryObjectiv)
+GLESOVERRIDE(glDepthRange)
