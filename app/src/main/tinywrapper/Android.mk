@@ -398,6 +398,7 @@ LOCAL_SRC_FILES := \
     of_buffer_copier.c \
     stubs.c \
     multidraw.c \
+    vertexattrib.c \
     vgpu_shaderconv/shaderconv.c \
     unordered_map/unordered_map.c \
     unordered_map/int_hash.c

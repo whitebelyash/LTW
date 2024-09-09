@@ -10,6 +10,9 @@
 #include "proc.h"
 #include "egl.h"
 #include "libraryinternal.h"
+#define GL_GLEXT_PROTOTYPES
+#include "GL/gl.h"
+#include "GL/glext.h"
 
 INTERNAL eglMustCastToProperFunctionPointerType (*host_eglGetProcAddress)(const char *procname);
 INTERNAL es3_functions_t es3_functions;
