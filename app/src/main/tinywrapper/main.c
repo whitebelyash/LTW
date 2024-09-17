@@ -32,11 +32,11 @@ void *glMapBuffer(GLenum target, GLenum access) {
         case GL_SHADER_STORAGE_BUFFER:
         // GL 4.4
         case GL_QUERY_BUFFER:
-            printf("ERROR: glMapBuffer unsupported target=0x%x\n", target);
+            printf("ERROR: glMapBuffer unsupported target=0x%x", target);
             break; // not supported for now
 	    case GL_DRAW_INDIRECT_BUFFER:
         case GL_TEXTURE_BUFFER:
-            printf("ERROR: glMapBuffer unimplemented target=0x%x\n", target);
+            printf("ERROR: glMapBuffer unimplemented target=0x%x", target);
             break;
     }
 
@@ -79,49 +79,30 @@ static int inline nlevel(int size, int level) {
 
 static bool trigger_texlevelparameter = false;
 
-static bool check_texlevelparameter() {
-    if(current_context->es31) return true;
-    if(trigger_texlevelparameter) return false;
-    printf("glGetTexLevelParameter* functions are not supported below OpenGL ES 3.1\n");
-    trigger_texlevelparameter = true;
-    return false;
-}
-
-static void proxy_getlevelparameter(GLenum target, GLint level, GLenum pname, GLint *params) {
-    switch (pname) {
-        case GL_TEXTURE_WIDTH:
-            (*params) = nlevel(current_context->proxy_width, level);
-            break;
-        case GL_TEXTURE_HEIGHT:
-            (*params) = nlevel(current_context->proxy_height, level);
-            break;
-        case GL_TEXTURE_INTERNAL_FORMAT:
-            (*params) = current_context->proxy_intformat;
-            break;
-    }
-}
-
-void glGetTexLevelParameterfv(GLenum target, GLint level, GLenum pname, GLfloat *params) {
-    if(!current_context) return;
-    if(isProxyTexture(target)) {
-        GLint param = 0;
-        proxy_getlevelparameter(target, level, pname, &param);
-        *params = (GLfloat) param;
-        return;
-    }
-    if(!check_texlevelparameter()) return;
-    es3_functions.glGetTexLevelParameterfv(target, level, pname, params);
-}
-
 void glGetTexLevelParameteriv(GLenum target, GLint level, GLenum pname, GLint *params) {
     if(!current_context) return;
+    // NSLog("glGetTexLevelParameteriv(%x, %d, %x, %p)", target, level, pname, params);
     if (isProxyTexture(target)) {
-        proxy_getlevelparameter(target, level, pname, params);
-        return;
+        switch (pname) {
+            case GL_TEXTURE_WIDTH:
+                (*params) = nlevel(current_context->proxy_width, level);
+                break;
+            case GL_TEXTURE_HEIGHT:
+                (*params) = nlevel(current_context->proxy_height, level);
+                break;
+            case GL_TEXTURE_INTERNAL_FORMAT:
+                (*params) = current_context->proxy_intformat;
+                break;
+        }
+    } else {
+        if(trigger_texlevelparameter) return;
+        if(!current_context->es31) {
+            printf("glGetTexLevelParameter* functions are not supported on your device");
+            trigger_texlevelparameter = true;
+            return;
+        }
+        es3_functions.glGetTexLevelParameteriv(target, level, pname, params);
     }
-    if(!check_texlevelparameter()) return;
-    es3_functions.glGetTexLevelParameteriv(target, level, pname, params);
-
 }
 
 void glTexImage2D(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid *data) {
