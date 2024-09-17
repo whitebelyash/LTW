@@ -170,7 +170,7 @@ void glShaderSource(GLuint shader, GLsizei count, const GLchar *const*string, co
     target_string[target_length] = 0;
 
 #undef SRC_LEN
-    GLchar* new_source = optimize_shader(target_string, shader_info->shader_type == GL_VERTEX_SHADER, 410, 300);
+    GLchar* new_source = optimize_shader(target_string, shader_info->shader_type == GL_VERTEX_SHADER, 460, 300);
     //printf("\n\n\nShader Result\n%s\n\n\n", new_source);
     if(shader_info->source != NULL) free((void*)shader_info->source);
     shader_info->source = new_source;

@@ -16,6 +16,10 @@ typedef struct {
 
 void basevertex_init(context_t* context) {
     basevertex_renderer_t *renderer = &context->basevertex;
+    if(!context->es31) {
+        printf("LTW: BaseVertex render calls not available: requires OpenGL ES 3.1\n");
+        return;
+    }
     es3_functions.glGenBuffers(1, &renderer->indirectRenderBuffer);
     GLenum error = es3_functions.glGetError();
     if(error != GL_NO_ERROR) {

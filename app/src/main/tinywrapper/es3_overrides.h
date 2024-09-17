@@ -35,6 +35,7 @@ void glDepthRange(GLdouble nearVal,
 GLESOVERRIDE(glClearDepth)
 GLESOVERRIDE(glMapBuffer)
 GLESOVERRIDE(glGetTexLevelParameteriv)
+GLESOVERRIDE(glGetTexLevelParameterfv)
 GLESOVERRIDE(glCreateShader)
 GLESOVERRIDE(glDeleteShader)
 GLESOVERRIDE(glShaderSource)

@@ -792,7 +792,8 @@ const char* const operator_glsl_strs[] = {
    "vector_extract_TODO",
    "interpolate_at_offse_TODOt",
    "interpolate_at_sample_TODO",
-   "atan2",
+   // NOTE: atan2 operation, replaced with atan(x,y)
+   "atan",
    "fma",
    "mix", // lrp ?
    "csel",
@@ -937,7 +938,8 @@ const char* const operator_glsl_enum_strs[] = {
    "vector_extract",
    "interpolate_at_offset",
    "interpolate_at_sample",
-   "atan2",
+        // NOTE: atan2 operation, replaced with atan(x,y)
+   "atan",
    "fma",
    "lrp",
    "csel",
@@ -961,7 +963,7 @@ static bool is_binop_func_like(ir_expression_operation op, const glsl_type* type
 {
 	if (op == ir_binop_equal ||
 		op == ir_binop_nequal ||
-		op == ir_binop_mod ||
+		op == ir_binop_mod || op == ir_binop_atan2 ||
 		(op >= ir_binop_dot && op <= ir_binop_pow))
 		return true;
 	if (type->is_vector() && (op >= ir_binop_less && op <= ir_binop_nequal))

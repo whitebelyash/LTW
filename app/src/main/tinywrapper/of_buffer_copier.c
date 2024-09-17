@@ -72,8 +72,25 @@ void glGetTexImage( 	GLenum target,
                        GLenum format,
                        GLenum type,
                        void * pixels) {
-    //printf("glGetTexImage(%x, %i, %x, %x, %p)\n", target, level, format, type, pixels);
-    printf("LTW: glGetTexImage is not supported yet\n");
+    if(!current_context) return;
+    if(!current_context->es31) goto unsupported_esver;
+    if(format != GL_RGBA && format != GL_RGBA_INTEGER && type != GL_UNSIGNED_BYTE && type != GL_UNSIGNED_INT && type != GL_INT && type != GL_FLOAT) goto unsupported;
+    framebuffer_copier_t* copier = &current_context->framebuffer_copier;
+    GLint texture;
+    es3_functions.glGetIntegerv(get_target_query_param(target), &texture);
+    es3_functions.glBindFramebuffer(GL_READ_FRAMEBUFFER, copier->tempfb);
+    es3_functions.glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, target, texture, level);
+    GLint w, h;
+    es3_functions.glGetTexLevelParameteriv(target, level, GL_TEXTURE_WIDTH, &w);
+    es3_functions.glGetTexLevelParameteriv(target, level, GL_TEXTURE_HEIGHT, &h);
+    es3_functions.glReadPixels(0, 0, w, h, format, type, pixels);
+    es3_functions.glFramebufferRenderbuffer(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, 0);
+    return;
+    unsupported_esver:
+    printf("LTW: glGetTexImage only supported on OpenGL ES 3.1");
+    return;
+    unsupported:
+    printf("LTW: unsupported parameters for glGetTexImage");
 }
 
 void glReadPixels(GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLvoid * data) {

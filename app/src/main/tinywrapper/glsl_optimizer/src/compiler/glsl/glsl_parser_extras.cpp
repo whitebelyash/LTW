@@ -227,7 +227,6 @@ _mesa_glsl_parse_state::_mesa_glsl_parse_state(struct gl_context *_ctx,
     * outside the compatibility contexts of 3.x.
     */
    this->num_supported_versions = 0;
-   printf("mesa_glsl: is_desktop=%i GLSLVersion=%i\n", _mesa_is_desktop_gl(ctx), ctx->Const.GLSLVersion);
    if (_mesa_is_desktop_gl(ctx)) {
       for (unsigned i = 0; i < ARRAY_SIZE(known_desktop_glsl_versions); i++) {
          if (known_desktop_glsl_versions[i] <= ctx->Const.GLSLVersion) {
