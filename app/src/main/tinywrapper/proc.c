@@ -18,12 +18,12 @@ INTERNAL eglMustCastToProperFunctionPointerType (*host_eglGetProcAddress)(const 
 INTERNAL es3_functions_t es3_functions;
 
 static void error_sysegl() {
-    __android_log_print(ANDROID_LOG_ERROR, "TinywrapperInit", "Failed to load system EGL: %s", dlerror());
+    __android_log_print(ANDROID_LOG_ERROR, "LTWInit", "Failed to load system EGL: %s", dlerror());
     abort();
 }
 
 static void error_init(const char* functionName) {
-    __android_log_print(ANDROID_LOG_ERROR, "TinywrapperInit", "Failed to load function \"%s\"", functionName);
+    __android_log_print(ANDROID_LOG_ERROR, "LTWInit", "Failed to load function \"%s\"", functionName);
     abort();
 }
 
@@ -50,10 +50,6 @@ __attribute__((used)) eglMustCastToProperFunctionPointerType glXGetProcAddress(c
     return eglGetProcAddress(procname);
 }
 
-// You must also add the stubs.c file into sources for this parameter to work.
-// Do not deploy in production with this enabled.
-#define USE_STUBS
-#ifdef USE_STUBS
 static eglMustCastToProperFunctionPointerType resolve_stub(const char* procname) {
     size_t procnamelen = strlen(procname);
     size_t stublen = procnamelen + 5;
@@ -61,10 +57,8 @@ static eglMustCastToProperFunctionPointerType resolve_stub(const char* procname)
     memcpy(stub_procname, "stub_", 5);
     memcpy(stub_procname + 5, procname, procnamelen);
     stub_procname[stublen] = 0;
-    printf("Used stub: %s\n", stub_procname);
     return dlsym(NULL, stub_procname);
 }
-#endif
 
 eglMustCastToProperFunctionPointerType eglGetProcAddress(const char *procname) {
     // EGL functions that we implement.
@@ -78,7 +72,7 @@ eglMustCastToProperFunctionPointerType eglGetProcAddress(const char *procname) {
     if(strncmp(procname, "gl", 2) != 0) goto fallback;
 #define GLESOVERRIDE(name)                                        \
     if(!strcmp(procname, #name)) {                                \
-        printf("Overridden: %s\n", #name);                        \
+        printf("LTW: Overridden %s\n", #name);                        \
         return (eglMustCastToProperFunctionPointerType) name;     \
     }
 #include "es3_overrides.h"
@@ -86,8 +80,6 @@ eglMustCastToProperFunctionPointerType eglGetProcAddress(const char *procname) {
     eglMustCastToProperFunctionPointerType function;
 fallback:
     function = host_eglGetProcAddress(procname);
-#ifdef USE_STUBS
     if(function == NULL) function = resolve_stub(procname);
-#endif
     return function;
 }

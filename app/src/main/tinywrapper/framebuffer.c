@@ -233,11 +233,11 @@ void glGetFramebufferAttachmentParameteriv(GLenum target,
         case GL_FRAMEBUFFER_ATTACHMENT_ALPHA_SIZE:
         case GL_FRAMEBUFFER_ATTACHMENT_COMPONENT_TYPE:
         case GL_FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING:
-            printf("tinywrapper: parameter %x is not implemented yet\n", pname);
+            printf("LTW: parameter %x is not implemented yet\n", pname);
             *params = 0;
             break;
         default:
-            printf("tinywrapper: parameter %x is not supported\n", pname);
+            printf("LTW: parameter %x is not supported\n", pname);
             *params = 0;
             break;
     }

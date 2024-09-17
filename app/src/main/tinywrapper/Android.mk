@@ -385,7 +385,7 @@ LOCAL_CFLAGS += -DHAVE_OPENGL_ES_2
 include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := tinywrapper
+LOCAL_MODULE := ltw
 LOCAL_SRC_FILES := \
     egl.c \
     proc.c \

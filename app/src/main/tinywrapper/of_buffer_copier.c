@@ -17,7 +17,7 @@ void buffer_copier_init(context_t* context) {
     es3_functions.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     GLenum error = es3_functions.glGetError();
     if(error != 0) {
-        printf("tinywrapper: error while initializing buffer-copier: %x\n", error);
+        printf("LTW: error while initializing buffer-copier: %x\n", error);
         return;
     }
     copier->ready = true;
@@ -72,7 +72,8 @@ void glGetTexImage( 	GLenum target,
                        GLenum format,
                        GLenum type,
                        void * pixels) {
-    printf("glGetTexImage(%x, %i, %x, %x, %p)\n", target, level, format, type, pixels);
+    //printf("glGetTexImage(%x, %i, %x, %x, %p)\n", target, level, format, type, pixels);
+    printf("LTW: glGetTexImage is not supported yet\n");
 }
 
 void glReadPixels(GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLvoid * data) {

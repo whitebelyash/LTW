@@ -77,6 +77,8 @@ static int inline nlevel(int size, int level) {
     return size;
 }
 
+static bool trigger_texlevelparameter = false;
+
 void glGetTexLevelParameteriv(GLenum target, GLint level, GLenum pname, GLint *params) {
     if(!current_context) return;
     // NSLog("glGetTexLevelParameteriv(%x, %d, %x, %p)", target, level, pname, params);
@@ -93,7 +95,13 @@ void glGetTexLevelParameteriv(GLenum target, GLint level, GLenum pname, GLint *p
                 break;
         }
     } else {
-        printf("tinywrapper: glGetTexLevelParameteriv is not supported\n");
+        if(trigger_texlevelparameter) return;
+        if(!current_context->es31) {
+            printf("glGetTexLevelParameter* functions are not supported on your device");
+            trigger_texlevelparameter = true;
+            return;
+        }
+        es3_functions.glGetTexLevelParameteriv(target, level, pname, params);
     }
 }
 
@@ -123,9 +131,11 @@ const GLubyte* glGetString(GLenum name) {
     if(!current_context) return NULL;
     switch(name) {
         case GL_VERSION:
-            return (const GLubyte*)"3.0 tinywrapper";
+            return (const GLubyte*)"3.0 Large Thin Wrapper";
         case GL_SHADING_LANGUAGE_VERSION:
-            return (const GLubyte*)"1.50 tinywrapper";
+            return (const GLubyte*)"4.60 LTW";
+        case GL_VENDOR:
+            return (const GLubyte*)"PojavLauncherTeam & QuestCraft Developers";
         default:
             return es3_functions.glGetString(name);
     }

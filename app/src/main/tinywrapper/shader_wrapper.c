@@ -27,7 +27,7 @@ GLuint glCreateProgram(void) {
     if(phys_program == 0) return phys_program;
     program_info_t *prog_info = calloc(1, sizeof(program_info_t));
     if(prog_info == NULL) {
-        printf("tinyshdrwrp: failed to allocate program_info\n");
+        printf("LTWShdrWp: failed to allocate program_info\n");
         abort();
     }
     unordered_map_put(current_context->program_map, (void*)phys_program, prog_info);
@@ -82,7 +82,7 @@ void glLinkProgram(GLuint program) {
     }
     shader_info_t *shader = unordered_map_get(current_context->shader_map, (void*)program_info->frag_shader);
     if(shader == NULL) {
-        printf("tinywrapper: failed to patch frag data location due to missing shader info\n");
+        printf("LTWShdrWp: failed to patch frag data location due to missing shader info\n");
         goto fallthrough;
     }
     size_t nsrc_size = strlen(shader->source) + 1;
@@ -103,7 +103,7 @@ void glLinkProgram(GLuint program) {
     GLuint patched_shader = es3_functions.glCreateShader(GL_FRAGMENT_SHADER);
     if(patched_shader == 0) {
         free(new_source);
-        printf("tinywrapper: failed to initialize patched shader\n");
+        printf("LTWShdrWp: failed to initialize patched shader\n");
         goto fallthrough;
     }
     es3_functions.glShaderSource(patched_shader, 1, &const_source, NULL);
@@ -116,7 +116,7 @@ void glLinkProgram(GLuint program) {
         es3_functions.glGetShaderiv(patched_shader, GL_INFO_LOG_LENGTH, &logSize);
         GLchar log[logSize];
         es3_functions.glGetShaderInfoLog(patched_shader, logSize, NULL, log);
-        printf("tinywrapper: failed to compile patched fragment shader, using default. Log:\n%s\n", log);
+        printf("LTWShdrWp: failed to compile patched fragment shader, using default. Log:\n%s\n", log);
         goto fallthrough;
     }
     es3_functions.glAttachShader(program, patched_shader);
@@ -133,7 +133,7 @@ GLuint glCreateShader(GLenum shaderType) {
     if(phys_shader == 0) return 0;
     shader_info_t* info_struct = calloc(1, sizeof(shader_info_t));
     if(info_struct == NULL) {
-        printf("tinyshdrwrp: failed to allocate shader_info\n");
+        printf("LTWShdrWp: failed to allocate shader_info\n");
         abort();
     }
     info_struct->shader_type = shaderType;
@@ -154,7 +154,7 @@ void glShaderSource(GLuint shader, GLsizei count, const GLchar *const*string, co
     if(!current_context) return;
     shader_info_t* shader_info = unordered_map_get(current_context->shader_map, (void*)shader);
     if(shader_info == NULL) {
-        printf("tinyshdrwrp: shader_info missing for shader %u\n", shader);
+        printf("LTWShdrWp: shader_info missing for shader %u\n", shader);
         es3_functions.glShaderSource(shader, count, string, length);
         return;
     }

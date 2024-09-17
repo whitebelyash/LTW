@@ -54,6 +54,31 @@ static bool init_context(context_t* tw_context) {
 static void free_context(context_t* tw_context) {
     unordered_map_free(tw_context->shader_map);
 }
+
+static void find_esversion(context_t* context) {
+    const char* version = (const char*) es3_functions.glGetString(GL_VERSION);
+    const size_t len = strlen(version);
+    if(len < 12) goto fail;
+    const char* versionstart = strchr(version + 9, ' ');
+    int esmajor = 0, esminor = 0;
+    sscanf(versionstart, " %i.%i ", &esmajor, &esminor);
+    printf("LTW: Running on OpenGL ES %i.%i\n", esmajor, esminor);
+    if(esmajor == 0 && esminor == 0) return;
+    if(esmajor < 3) {
+        printf("Unsupported OpenGL ES version. This will cause you problems down the line.\n");
+        return;
+    }
+    if(esmajor == 3) {
+        context->es31 = esminor >= 1;
+    }else if(esmajor > 3) {
+        context->es31 = true;
+    }
+
+    return;
+    fail:
+    printf("LTW: Failed to detect GL ES version");
+}
+
 void basevertex_init(context_t* context);
 void buffer_copier_init(context_t* context);
 static void init_incontext(context_t* tw_context) {
@@ -62,6 +87,9 @@ static void init_incontext(context_t* tw_context) {
     if(tw_context->max_drawbuffers > MAX_DRAWBUFFERS) {
         tw_context->max_drawbuffers = MAX_DRAWBUFFERS;
     }
+
+    find_esversion(tw_context);
+
     basevertex_init(tw_context);
     buffer_copier_init(tw_context);
     es3_functions.glGenBuffers(1, &tw_context->multidraw_element_buffer);

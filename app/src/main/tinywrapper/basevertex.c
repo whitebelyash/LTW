@@ -19,7 +19,7 @@ void basevertex_init(context_t* context) {
     es3_functions.glGenBuffers(1, &renderer->indirectRenderBuffer);
     GLenum error = es3_functions.glGetError();
     if(error != GL_NO_ERROR) {
-        printf("tinywrapper: Failed to initialize indirect buffers: %x\n", error);
+        printf("LTW: Failed to initialize indirect buffers: %x\n", error);
         return;
     }
     renderer->ready = true;
@@ -50,13 +50,13 @@ void glDrawElementsBaseVertex(GLenum mode,
     es3_functions.glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &elementbuffer);
     if(elementbuffer == 0) {
         // I am not bothered enough to implement this.
-        printf("tinywrapper: Base vertex draws without element buffer are not supported\n");
+        printf("LTW: Base vertex draws without element buffer are not supported\n");
         return;
     }
     GLint typeBytes = type_bytes(type);
     uintptr_t indicesPointer = (uintptr_t)indices;
     if(indicesPointer % typeBytes != 0) {
-        printf("tinywrapper: misaligned base vertex draw not supported\n");
+        printf("LTW: misaligned base vertex draw not supported\n");
     }
     indirect_pass_t indirect_pass;
     indirect_pass.count = count;
@@ -85,7 +85,7 @@ void glMultiDrawElementsBaseVertex(GLenum mode,
     es3_functions.glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &elementbuffer);
     if(elementbuffer == 0) {
         // I am not bothered enough to implement this.
-        printf("tinywrapper: Base vertex draws without element buffer are not supported\n");
+        printf("LTW: Base vertex draws without element buffer are not supported\n");
         return;
     }
     GLint typeBytes = type_bytes(type);
@@ -93,7 +93,7 @@ void glMultiDrawElementsBaseVertex(GLenum mode,
     for(GLsizei i = 0; i < drawcount; i++) {
         uintptr_t indicesPointer = (uintptr_t)indices[i];
         if(indicesPointer % typeBytes != 0) {
-            printf("tinywrapper: misaligned base vertex draw not supported (draw %i)\n", i);
+            printf("LTW: misaligned base vertex draw not supported (draw %i)\n", i);
             return;
         }
         indirect_pass_t* pass = &indirect_passes[i];
