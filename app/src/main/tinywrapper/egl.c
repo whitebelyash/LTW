@@ -70,8 +70,9 @@ static void find_esversion(context_t* context) {
     }
     if(esmajor == 3) {
         context->es31 = esminor >= 1;
+        context->es32 = esminor >= 2;
     }else if(esmajor > 3) {
-        context->es31 = true;
+        context->es32 = context->es31 = true;
     }
 
     return;

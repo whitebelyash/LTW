@@ -16,6 +16,10 @@ typedef struct {
 
 void basevertex_init(context_t* context) {
     basevertex_renderer_t *renderer = &context->basevertex;
+    if(context->es32) {
+        printf("LTW: BaseVertex render calls will use OpenGL ES 3.2 variants\n");
+        return;
+    }
     if(!context->es31) {
         printf("LTW: BaseVertex render calls not available: requires OpenGL ES 3.1\n");
         return;
@@ -42,12 +46,12 @@ static void restore_state(GLuint element_buffer) {
     es3_functions.glBindBuffer(GL_DRAW_INDIRECT_BUFFER, current_context->bound_buffers[get_buffer_index(GL_DRAW_INDIRECT_BUFFER)]);
 }
 
-void glDrawElementsBaseVertex(GLenum mode,
-                              GLsizei count,
-                              GLenum type,
-                              void *indices,
-                              GLint basevertex) {
+void glDrawElementsBaseVertex(GLenum mode, GLsizei count, GLenum type, const void *indices, GLint basevertex) {
     if(!current_context) return;
+    if(current_context->es32) {
+        es3_functions.glDrawElementsBaseVertex(mode, count, type, indices, basevertex);
+        return;
+    }
     basevertex_renderer_t *renderer = &current_context->basevertex;
     if(!renderer->ready) return;
     GLint elementbuffer;
@@ -83,6 +87,12 @@ void glMultiDrawElementsBaseVertex(GLenum mode,
                                    GLsizei drawcount,
                                    const GLint *basevertex) {
     if(!current_context) return;
+    if(current_context->es32) {
+        for(GLsizei i = 0; i < drawcount; i++) {
+            es3_functions.glDrawElementsBaseVertex(mode, count[i], type, indices[i], basevertex[i]);
+        }
+        return;
+    }
     basevertex_renderer_t *renderer = &current_context->basevertex;
     if(!renderer->ready) return;
     GLint elementbuffer;
