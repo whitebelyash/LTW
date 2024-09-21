@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include "glformats.h"
 #include "libraryinternal.h"
+#include "GL/gl.h"
 #include <stdio.h>
 
 static GLint pick_depth_internalformat(GLenum* type, bool* convert) {
@@ -67,9 +68,13 @@ static GLint pick_rg_internalformat(GLenum* type, bool* convert) {
     }
 }
 
+void pick_color_renderable_format(GLint* internalformat, GLenum* type, GLenum* format) {
+
+}
+
 void pick_format(GLint internalformat, GLenum* type, GLenum* format) {
     switch (internalformat) {
-        // Unsized formats. In this canse we always prefer the "byte" versions of them (meaning 32bit/24bit color)
+        // Unsized formats. In this case we always prefer the "byte" versions of them (meaning 32bit/24bit color)
         case GL_RGB: *format=GL_RGB; *type = GL_UNSIGNED_BYTE; break;
         case GL_RGBA: *format=GL_RGBA; *type = GL_UNSIGNED_BYTE; break;
         case GL_LUMINANCE_ALPHA: *format=GL_LUMINANCE_ALPHA; *type = GL_UNSIGNED_BYTE; break;
@@ -100,7 +105,7 @@ void pick_format(GLint internalformat, GLenum* type, GLenum* format) {
         case GL_SRGB8: *format=GL_RGB; *type=GL_UNSIGNED_BYTE; break;
         case GL_RGB565: *format=GL_RGB; *type=GL_UNSIGNED_BYTE; break;
         case GL_RGB8_SNORM: *format=GL_RGB; *type=GL_BYTE; break;
-        case GL_R11F_G11F_B10F: *format=GL_RGB; *type=GL_UNSIGNED_INT_10F_11F_11F_REV; break;
+        case GL_R11F_G11F_B10F: *format=GL_RGB; *type=GL_FLOAT; break;
         case GL_RGB9_E5: *format=GL_RGB; *type=GL_UNSIGNED_INT_5_9_9_9_REV; break;
         case GL_RGB16F: *format=GL_RGB; *type=GL_HALF_FLOAT; break;
         case GL_RGB32F: *format=GL_RGB; *type=GL_FLOAT; break;
@@ -182,6 +187,60 @@ INTERNAL void pick_internalformat(GLint *internalformat, GLenum* type, GLenum* f
             *format = GL_RGBA_INTEGER;
             break;
         default:
+            if(*data != NULL) break;
+            bool _signed = false;
+            // Pray that EXT_color_buffer_float exists on target if the float versions of the textures are used on framebuffers
+            switch(*format) {
+                case GL_RGB:
+                    switch (*type) {
+                        case GL_FLOAT:
+                        case GL_HALF_FLOAT:
+                            *internalformat = GL_R11F_G11F_B10F;
+                            return;
+                        case GL_UNSIGNED_SHORT:
+                        case GL_UNSIGNED_BYTE:
+                        case GL_UNSIGNED_INT:
+                        case GL_SHORT:
+                        case GL_BYTE:
+                        case GL_INT:
+                            if(*internalformat == GL_RGB16 || *internalformat == GL_RGB12 || *internalformat == GL_RGB10) {
+                                // Color renderable 16 bit RGB integer formats don't exist on GLES
+                                *internalformat = GL_R11F_G11F_B10F;
+                                *type = GL_FLOAT;
+                                return;
+                            }
+
+                    }
+
+                    break;
+                case GL_RGBA:
+                    switch(*type) {
+                        case GL_FLOAT:
+                            *internalformat = GL_RGBA32F;
+                            return;
+                        case GL_HALF_FLOAT:
+                            *internalformat = GL_RGBA16F;
+                            return;
+                        case GL_SHORT:
+                        case GL_BYTE:
+                        case GL_INT:
+                            _signed = true;
+                        case GL_UNSIGNED_SHORT:
+                        case GL_UNSIGNED_BYTE:
+                        case GL_UNSIGNED_INT:
+                            if(*internalformat == GL_RGBA16 || *internalformat == GL_RGBA12) {
+                                *format = GL_RGBA_INTEGER;
+                                if(_signed) {
+                                    *internalformat = GL_RGBA16I;
+                                    *type = GL_SHORT;
+                                }else {
+                                    *internalformat = GL_RGBA16UI;
+                                    *type = GL_UNSIGNED_SHORT;
+                                }
+                                return;
+                            }
+                    }
+            }
             break;
     }
     // GL applications do not have to supply valid data to "type" and "format" fields if they are not uploading any data
@@ -191,6 +250,6 @@ INTERNAL void pick_internalformat(GLint *internalformat, GLenum* type, GLenum* f
         return;
     }
     if(*data != NULL && convert_data) {
-        printf("Tinywrapper: we don't support format conversion at the moment. Sorry!\n");
+        printf("LTW: we don't support format conversion at the moment. Sorry!\n");
     }
 }
