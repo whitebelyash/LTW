@@ -28,7 +28,6 @@ static GLuint get_attachment_idx(GLenum attachment) {
 static GLenum map_attachment(framebuffer_t* framebuffer, GLenum attachment) {
     for(GLsizei i = 0; i < framebuffer->nbuffers; i++) {
         if(framebuffer->virt_drawbuffers[i] == attachment) {
-            //printf("tinywrapper: detected physical attachment %i for virt %x\n", i, attachment);
             return i + GL_COLOR_ATTACHMENT0;
         }
     }
@@ -116,6 +115,21 @@ void glDrawBuffers(GLsizei n, const GLenum* buffers) {
 
 void glDrawBuffer(GLenum buffer) {
     glDrawBuffers(1, &buffer);
+}
+
+GLenum glCheckFramebufferStatus( 	GLenum target) {
+    if(!current_context) return GL_FRAMEBUFFER_UNDEFINED;
+    GLenum framebuffer_status = es3_functions.glCheckFramebufferStatus(target);
+    if(framebuffer_status == GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT) {
+        framebuffer_t *framebuffer = get_framebuffer(target);
+        for(GLint i = 0; i < MAX_FBTARGETS; i++) {
+            // At least one color target found, means we just optimized out all color targets on the physical device
+            // This will come back to normal after a call to `glDrawBuffers` if only the secondary buffers are in use.
+            if(framebuffer->color_targets[i] != GL_NONE || framebuffer->color_objects[i] != 0) return GL_FRAMEBUFFER_COMPLETE;
+        }
+        return GL_FRAMEBUFFER_COMPLETE;
+    }
+    return framebuffer_status;
 }
 
 void glFramebufferTexture2D( 	GLenum target,
