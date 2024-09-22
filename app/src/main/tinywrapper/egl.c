@@ -3,6 +3,7 @@
 //
 #include "egl.h"
 #include "unordered_map/int_hash.h"
+#include "string_utils.h"
 #include <string.h>
 
 thread_local context_t *current_context;
@@ -53,6 +54,59 @@ static bool init_context(context_t* tw_context) {
 
 static void free_context(context_t* tw_context) {
     unordered_map_free(tw_context->shader_map);
+    unordered_map_free(tw_context->program_map);
+    unordered_map_free(tw_context->framebuffer_map);
+    if(tw_context->extensions_string != NULL) free(tw_context->extensions_string);
+    if(tw_context->nextras != 0 && tw_context->extra_extensions_array != NULL) {
+        for(int i = 0; i < tw_context->nextras; i++) {
+            free((tw_context->extra_extensions_array[i]));
+        }
+        free(tw_context->extra_extensions_array);
+    }
+}
+
+void init_extra_extensions(context_t* context, int* length) {
+    const char* es_extensions = (const char*)es3_functions.glGetString(GL_EXTENSIONS);
+    *length = (int)strlen(es_extensions);
+    context->extensions_string = malloc(*length + 1);
+    memcpy(context->extensions_string, es_extensions, *length+1);
+}
+
+void add_extra_extension(context_t* context, int* length, const char* extension)  {
+    size_t extension_len = strlen(extension);
+
+    char str_append_extension[extension_len + 2];
+    memcpy(str_append_extension, extension, extension_len);
+    str_append_extension[extension_len] = ' ';
+    str_append_extension[extension_len + 1] = 0;
+    context->extensions_string = gl4es_append(context->extensions_string, length, str_append_extension);
+
+    int extension_idx = context->nextras++;
+    context->extra_extensions_array = realloc(context->extra_extensions_array, sizeof(char*)*context->nextras);
+    char* extra_extension = malloc(extension_len + 1);
+    strncpy(extra_extension, extension, extension_len);
+    context->extra_extensions_array[extension_idx] = extra_extension;
+}
+
+void fin_extra_extensions(context_t* context, int length) {
+    if(context->extensions_string[length-2] != ' ') return;
+    char* orig_string = context->extensions_string;
+    context->extensions_string = realloc(context->extensions_string, length - 1);
+    if(context->extensions_string == NULL) {
+        free(orig_string);
+        return;
+    }
+    context->extensions_string[length-2] = 0;
+}
+
+void build_extension_string(context_t* context) {
+    int length;
+    init_extra_extensions(context, &length);
+    if(context->buffer_storage) {
+        add_extra_extension(context, &length, "GL_ARB_buffer_storage");
+    }
+    // More extensions are possible, but will need way more wraps and tracking.
+    fin_extra_extensions(context, length);
 }
 
 static void find_esversion(context_t* context) {
@@ -75,6 +129,11 @@ static void find_esversion(context_t* context) {
         context->es32 = context->es31 = true;
     }
 
+    const char* extensions = (const char*) es3_functions.glGetString(GL_EXTENSIONS);
+    if(strstr(extensions, "GL_EXT_buffer_storage")) context->buffer_storage = true;
+
+    build_extension_string(context);
+
     return;
     fail:
     printf("LTW: Failed to detect GL ES version");
@@ -85,6 +144,7 @@ void buffer_copier_init(context_t* context);
 static void init_incontext(context_t* tw_context) {
     es3_functions.glGetIntegerv(GL_MAX_TEXTURE_SIZE, &tw_context->maxTextureSize);
     es3_functions.glGetIntegerv(GL_MAX_DRAW_BUFFERS, &tw_context->max_drawbuffers);
+    es3_functions.glGetIntegerv(GL_NUM_EXTENSIONS, &tw_context->nextensions_es);
     if(tw_context->max_drawbuffers > MAX_DRAWBUFFERS) {
         tw_context->max_drawbuffers = MAX_DRAWBUFFERS;
     }

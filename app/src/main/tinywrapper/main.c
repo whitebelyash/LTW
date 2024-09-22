@@ -146,6 +146,25 @@ void glTexParameteri(GLenum target, GLenum pname, GLint param) {
     es3_functions.glTexParameteri(target, pname, param);
 }
 
+void glBufferStorage(GLenum target,
+                     GLsizeiptr size,
+                     const void * data,
+                     GLbitfield flags) {
+    if(!current_context || !current_context->buffer_storage) return;
+    es3_functions.glBufferStorageEXT(target, size, data, flags);
+}
+
+const GLubyte* glGetStringi(GLenum name, GLuint index) {
+    if(!current_context || name != GL_EXTENSIONS) return NULL;
+    if(index < current_context->nextensions_es) {
+        return es3_functions.glGetStringi(name, index);
+    }else {
+        int extra_index = index - current_context->nextensions_es;
+        if(extra_index >= current_context->nextras) return NULL;
+        return (const GLubyte*)current_context->extra_extensions_array[extra_index];
+    }
+}
+
 const GLubyte* glGetString(GLenum name) {
     if(!current_context) return NULL;
     switch(name) {
@@ -155,6 +174,9 @@ const GLubyte* glGetString(GLenum name) {
             return (const GLubyte*)"4.60 LTW";
         case GL_VENDOR:
             return (const GLubyte*)"PojavLauncherTeam & QuestCraft Developers";
+        case GL_EXTENSIONS:
+            if(current_context->extensions_string != NULL) return (const GLubyte*)current_context->extensions_string;
+            return (const GLubyte*)es3_functions.glGetString(GL_EXTENSIONS);
         default:
             return es3_functions.glGetString(name);
     }
@@ -254,6 +276,10 @@ void glUseProgram(GLuint program) {
 void glGetIntegerv(GLenum pname, GLint* data) {
     if(!current_context) return;
     switch (pname) {
+        case GL_NUM_EXTENSIONS:
+            es3_functions.glGetIntegerv(pname, data);
+            (*data) += current_context->nextras;
+            break;
         case GL_MAX_COLOR_ATTACHMENTS:
             *data = MAX_FBTARGETS;
             return;

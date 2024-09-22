@@ -57,7 +57,7 @@ typedef struct {
 typedef struct {
     EGLContext phys_context;
     bool context_rdy;
-    bool es31, es32;
+    bool es31, es32, buffer_storage;
     basevertex_renderer_t basevertex;
     GLuint multidraw_element_buffer;
     framebuffer_copier_t framebuffer_copier;
@@ -72,6 +72,10 @@ typedef struct {
     GLuint program;
     GLuint draw_framebuffer;
     GLuint read_framebuffer;
+    char* extensions_string;
+    size_t nextras;
+    int nextensions_es;
+    char** extra_extensions_array;
 } context_t;
 
 extern thread_local context_t *current_context;
