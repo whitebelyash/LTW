@@ -1302,7 +1302,7 @@ IR_TO_GLSL::visit(ir_texture* ir)
 
     // Handle forward/back porting
     if (is_shadow) {
-        printf("stateversion: %i, %i\n", state->language_version, state->original_language_version);
+        //printf("stateversion: %i, %i\n", state->language_version, state->original_language_version);
         if (state->language_version >= 130 && ir->type->vector_elements > 2){
             printf("closing vec4 wrapper");
             generated_source.append(")"); // Close the vec4 wrapper

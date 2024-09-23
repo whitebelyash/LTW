@@ -111,14 +111,15 @@ void build_extension_string(context_t* context) {
 
 static void find_esversion(context_t* context) {
     const char* version = (const char*) es3_functions.glGetString(GL_VERSION);
-    const size_t len = strlen(version);
-    if(len < 12) goto fail;
-    const char* versionstart = strchr(version + 9, ' ');
-    int esmajor = 0, esminor = 0;
-    sscanf(versionstart, " %i.%i ", &esmajor, &esminor);
-    printf("LTW: Running on OpenGL ES %i.%i\n", esmajor, esminor);
-    if(esmajor == 0 && esminor == 0) return;
-    if(esmajor < 3) {
+    const char* shader_version = (const char*) es3_functions.glGetString(GL_SHADING_LANGUAGE_VERSION);
+
+    int esmajor = 0, esminor = 0, shadermajor = 3, shaderminor = 0;
+    sscanf(version, " OpenGL ES %i.%i", &esmajor, &esminor);
+    sscanf(shader_version, " OpenGL ES GLSL ES %i.%i", &shadermajor, &shaderminor);
+    context->shader_version = shadermajor * 100 + shaderminor;
+    printf("LTW: Running on OpenGL ES %i.%i with ESSL %i\n", esmajor, esminor, context->shader_version);
+    if(esmajor == 0 && esminor == 0) goto fail;
+    if(esmajor < 3 || context->shader_version < 300) {
         printf("Unsupported OpenGL ES version. This will cause you problems down the line.\n");
         return;
     }
@@ -136,7 +137,7 @@ static void find_esversion(context_t* context) {
 
     return;
     fail:
-    printf("LTW: Failed to detect GL ES version");
+    printf("LTW: Failed to detect OpenGL ES version");
 }
 
 void basevertex_init(context_t* context);
