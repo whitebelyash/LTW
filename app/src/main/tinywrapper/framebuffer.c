@@ -127,7 +127,7 @@ GLenum glCheckFramebufferStatus( 	GLenum target) {
             // This will come back to normal after a call to `glDrawBuffers` if only the secondary buffers are in use.
             if(framebuffer->color_targets[i] != GL_NONE || framebuffer->color_objects[i] != 0) return GL_FRAMEBUFFER_COMPLETE;
         }
-        return GL_FRAMEBUFFER_COMPLETE;
+        return GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT;
     }
     return framebuffer_status;
 }

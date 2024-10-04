@@ -26,7 +26,7 @@ GlslConvert::OptimizationStruct optimizationStruct {}; // Default struct with ev
 
 
 
-char *optimize_shader(char *source, GLenum type, int vGLSLVersion, int vTargetGLSLVersion) {
+__attribute((visibility("default"))) char *optimize_shader(char *source, GLenum type, int vGLSLVersion, int vTargetGLSLVersion) {
     GlslConvert& converter = GlslConvert::Instance();
     GlslConvert::ShaderStage stage = getStageForGlEnum(type);
     if(stage == GlslConvert::MESA_SHADER_NONE) {
