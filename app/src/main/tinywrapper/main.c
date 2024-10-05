@@ -136,7 +136,35 @@ void glTexImage2D(GLenum target, GLint level, GLint internalformat, GLsizei widt
     }
 }
 
-void glTexParameteri(GLenum target, GLenum pname, GLint param) {
+bool filter_params_integer(GLenum target, GLenum pname, GLint param) {
+    return true;
+}
+bool filter_params_float(GLenum target, GLenum pname, GLfloat param) {
+    if(pname == GL_TEXTURE_LOD_BIAS) {
+        if(param != 0.0f) {
+            static bool lodbias_trigger = false;
+            if(!lodbias_trigger) {
+                printf("LTW: setting GL_TEXTURE_LOD_BIAS to nondefault value not supported\n");
+            }
+        }
+        return false;
+    }
+    return true;
+}
+void glTexParameterf( 	GLenum target,
+                         GLenum pname,
+                         GLfloat param) {
+    if(!current_context) return;
+    if(!filter_params_integer(target, pname, (GLint) param)) return;
+    if(!filter_params_float(target, pname, param)) return;
+    es3_functions.glTexParameterf(target, pname, param);
+}
+void glTexParameteri( 	GLenum target,
+                         GLenum pname,
+                         GLint param) {
+    if(!current_context) return;
+    if(!filter_params_integer(target, pname, param)) return;
+    if(!filter_params_float(target, pname, (GLfloat)param)) return;
     switch (pname) {
         case GL_TEXTURE_MIN_FILTER:
         case GL_TEXTURE_MAG_FILTER:
@@ -145,6 +173,60 @@ void glTexParameteri(GLenum target, GLenum pname, GLint param) {
     }
     es3_functions.glTexParameteri(target, pname, param);
 }
+
+void glTexParameterfv( 	GLenum target,
+                          GLenum pname,
+                          const GLfloat * params) {
+    if(!current_context) return;
+    if(!filter_params_integer(target, pname, (GLint)*params)) return;
+    if(!filter_params_float(target, pname, *params)) return;
+    es3_functions.glTexParameterfv(target, pname, params);
+}
+void glTexParameteriv( 	GLenum target,
+                          GLenum pname,
+                          const GLint * params) {
+    if(!current_context) return;
+    if(!filter_params_integer(target, pname, *params)) return;
+    if(!filter_params_float(target, pname, (GLfloat)*params)) return;
+    es3_functions.glTexParameteriv(target, pname, params);
+}
+static bool trigger_gltexparameteri = false;
+void glTexParameterIiv( 	GLenum target,
+                           GLenum pname,
+                           const GLint * params) {
+    if(!current_context) return;
+    if(pname != GL_TEXTURE_SWIZZLE_RGBA) {
+        if(!trigger_gltexparameteri) {
+            printf("LTW: glTexParameterIiv for parameters other than GL_TEXTURE_SWIZZLE_RGBA is not supported\n");
+            trigger_gltexparameteri = true;
+        }
+        return;
+    }
+    es3_functions.glTexParameteriv(target, pname, params);
+}
+void glTexParameterIuiv( 	GLenum target,
+                            GLenum pname,
+                            const GLuint * params) {
+    if(!current_context) return;
+    if(pname != GL_TEXTURE_SWIZZLE_RGBA) {
+        if(!trigger_gltexparameteri) {
+            printf("LTW: glTexParameterIuiv for parameters other than GL_TEXTURE_SWIZZLE_RGBA is not supported\n");
+            trigger_gltexparameteri = true;
+        }
+        return;
+    }
+    es3_functions.glTexParameteriv(target, pname, (const GLint*)params);
+}
+
+void glRenderbufferStorage(	GLenum target,
+                               GLenum internalformat,
+                               GLsizei width,
+                               GLsizei height) {
+    if(!current_context) return;
+    if(internalformat == GL_DEPTH_COMPONENT) internalformat = GL_DEPTH_COMPONENT16;
+    es3_functions.glRenderbufferStorage(target, internalformat, width, height);
+}
+
 
 void glBufferStorage(GLenum target,
                      GLsizeiptr size,
