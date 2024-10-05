@@ -187,7 +187,7 @@ void glFramebufferRenderbuffer( 	GLenum target,
     framebuffer_t *framebuffer = get_framebuffer(target);
     GLuint attachment_idx = get_attachment_idx(attachment);
     if(!framebuffer || attachment_idx == -1) {
-        es3_functions.glFramebufferRenderbuffer(target, attachment, renderbuffertarget, renderbuffertarget);
+        es3_functions.glFramebufferRenderbuffer(target, attachment, renderbuffertarget, renderbuffer);
         return;
     }
     if(renderbuffer == 0) {
