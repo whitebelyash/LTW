@@ -191,6 +191,19 @@ char * IR_TO_GLSL::Convert(
 
         if(print_precision) {
             res.append("precision %s float;\nprecision %s int;\n", "highp", "highp");
+            res.append("precision %1$s sampler3D;\n"
+                       "precision %1$s samplerCubeShadow;\n"
+                       "precision %1$s sampler2DShadow;\n"
+                       "precision %1$s sampler2DArray;\n"
+                       "precision %1$s sampler2DArrayShadow;\n"
+                       "precision %1$s isampler2D;\n"
+                       "precision %1$s isampler3D;\n"
+                       "precision %1$s isamplerCube;\n"
+                       "precision %1$s isampler2DArray;\n"
+                       "precision %1$s usampler2D;\n"
+                       "precision %1$s usampler3D;\n"
+                       "precision %1$s usamplerCube;\n"
+                       "precision %1$s usampler2DArray;\n", "lowp");
         }
 
 		for (unsigned i = 0; i < state->num_user_structures; i++)
@@ -406,13 +419,11 @@ IR_TO_GLSL::visit(ir_variable* ir)
    if(ir->type->is_void())
       return;
 
-    // TODO restore uniform blocks
-    /*
 	if ( ir->is_in_uniform_block()) // only supporting uniform blocks for now, might add SSBOs later
 	{
 		visit_uniform_block( ir );
 		return;
-	}*/
+	}
 	char binding[32] = { 0 };
 	if (ir->data.binding)
 		snprintf(binding, sizeof(binding), "binding=%i ", ir->data.binding);
@@ -1259,9 +1270,24 @@ IR_TO_GLSL::visit(ir_texture* ir)
 	}else {
 		ir->coordinate->accept(this); // accept as usual if the function aint wacky
 	}
-
+    GLenum type_enum = ir->sampler->type->gl_type;
+    bool buffer_texture_sampler;
+    switch(type_enum) {
+        case GL_SAMPLER_BUFFER:
+        case GL_INT_SAMPLER_BUFFER:
+        case GL_UNSIGNED_INT_SAMPLER_BUFFER:
+        case GL_IMAGE_BUFFER:
+        case GL_INT_IMAGE_BUFFER:
+        case GL_UNSIGNED_INT_IMAGE_BUFFER:
+            buffer_texture_sampler = true;
+            break;
+        default:
+            buffer_texture_sampler = false;
+    }
 	// lod
-	if ((ir->op == ir_txl || ir->op == ir_txf) && state->language_version >= 130)
+    // Don't print LOD if fetching texel from buffer texture
+    bool is_txf_from_buffer_texture = ir->op == ir_txf && buffer_texture_sampler;
+	if ((ir->op == ir_txl || ir->op == ir_txf) && state->language_version >= 130 && !is_txf_from_buffer_texture)
 	{
 		generated_source.append(", ");
 		ir->lod_info.lod->accept(this);
@@ -2139,12 +2165,21 @@ void IR_TO_GLSL::visit_uniform_block(ir_variable *ir) {
 		default: packing = nullptr;  break;
 	}
 
-	// TODO: handle explicit locations and bindings within layout expression for uniform blocks.
-	// that does not appear to be getting preserved.
-	if ( packing )
-	{
-		generated_source.append( "layout(%s) ", packing );
-	}
+    bool explicit_location = ir->data.explicit_location;
+    bool output_layout_qualifier = packing || explicit_location;
+    if(output_layout_qualifier) {
+        generated_source.append("layout(");
+        char insert_comma[] = {0, 0};
+        if(packing) {
+            generated_source.append("%s%s", insert_comma, packing);
+            insert_comma[0] = ',';
+        }
+        if(explicit_location) {
+            generated_source.append("%slocation=%i", insert_comma, ir->data.location);
+            insert_comma[0] = ',';
+        }
+        generated_source.append(")");
+    }
 	generated_source.append( "uniform %s {\n", itype->name );
 
 	for ( unsigned int i = 0; i < itype->length; i++ )

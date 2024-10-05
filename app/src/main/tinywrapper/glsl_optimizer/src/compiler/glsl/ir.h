@@ -447,6 +447,15 @@ public:
              this->interface_type != NULL;
    }
 
+    /**
+     * Determine whether or not a variable is part of an uniform block.
+     */
+    inline bool is_in_uniform_block() const
+    {
+        return this->data.mode == ir_var_uniform &&
+               this->interface_type != NULL;
+    }
+
    /**
     * Determine whether or not a variable is the declaration of an interface
     * block
