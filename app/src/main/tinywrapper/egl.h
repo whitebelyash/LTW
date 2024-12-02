@@ -14,6 +14,8 @@
 #define MAX_BOUND_BASEBUFFERS 4
 #define MAX_DRAWBUFFERS 8
 #define MAX_FBTARGETS 8
+#define MAX_TMUS 8
+#define MAX_TEXTARGETS 8
 
 typedef struct {
     bool ready;
@@ -48,11 +50,10 @@ typedef struct {
 } framebuffer_copier_t;
 
 typedef struct {
-    GLint internalformat;
-    GLenum format;
-    GLenum type;
-    GLsizei width, height;
-} texture_t;
+    GLenum original_swizzle[4];
+    GLboolean goofy_byte_order;
+    GLboolean upload_bgra;
+} texture_swizzle_track_t;
 
 typedef struct {
     EGLContext phys_context;
@@ -65,7 +66,7 @@ typedef struct {
     unordered_map* shader_map;
     unordered_map* program_map;
     unordered_map* framebuffer_map;
-    unordered_map* texture_map;
+    unordered_map* texture_swztrack_map;
     unordered_map* bound_basebuffers[MAX_BOUND_BASEBUFFERS];
     int proxy_width, proxy_height, proxy_intformat, maxTextureSize;
     GLint max_drawbuffers;
@@ -81,5 +82,6 @@ typedef struct {
 
 extern thread_local context_t *current_context;
 extern void init_egl();
+extern GLenum get_textarget_query_param(GLenum target);
 
 #endif //POJAVLAUNCHER_EGL_H

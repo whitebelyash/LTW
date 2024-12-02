@@ -12,6 +12,8 @@
 #include "egl.h"
 #include "glformats.h"
 #include "main.h"
+#include "swizzle.h"
+#include "libraryinternal.h"
 
 void glClearDepth(GLdouble depth) {
     if(!current_context) return;
@@ -58,7 +60,7 @@ void *glMapBuffer(GLenum target, GLenum access) {
     return es3_functions.glMapBufferRange(target, 0, length, access_range);
 }
 
-int isProxyTexture(GLenum target) {
+INTERNAL int isProxyTexture(GLenum target) {
     switch (target) {
         case GL_PROXY_TEXTURE_1D:
         case GL_PROXY_TEXTURE_2D:
@@ -67,6 +69,35 @@ int isProxyTexture(GLenum target) {
             return 1;
     }
     return 0;
+}
+
+INTERNAL GLenum get_textarget_query_param(GLenum target) {
+    switch (target) {
+        case GL_TEXTURE_2D:
+            return GL_TEXTURE_BINDING_2D;
+        case GL_TEXTURE_2D_MULTISAMPLE:
+            return GL_TEXTURE_BINDING_2D_MULTISAMPLE;
+        case GL_TEXTURE_2D_MULTISAMPLE_ARRAY:
+            return GL_TEXTURE_BINDING_2D_MULTISAMPLE_ARRAY;
+        case GL_TEXTURE_3D:
+            return GL_TEXTURE_BINDING_3D;
+        case GL_TEXTURE_2D_ARRAY:
+            return GL_TEXTURE_BINDING_2D_ARRAY;
+        case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
+        case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
+        case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
+        case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
+        case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
+        case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
+        case GL_TEXTURE_CUBE_MAP:
+            return GL_TEXTURE_BINDING_CUBE_MAP;
+        case GL_TEXTURE_CUBE_MAP_ARRAY:
+            return GL_TEXTURE_BINDING_CUBE_MAP_ARRAY;
+        case GL_TEXTURE_BUFFER:
+            return GL_TEXTURE_BUFFER_BINDING;
+        default:
+            return 0;
+    }
 }
 
 static int inline nlevel(int size, int level) {
@@ -131,15 +162,16 @@ void glTexImage2D(GLenum target, GLint level, GLint internalformat, GLsizei widt
         current_context->proxy_height = ((height<<level)>current_context->maxTextureSize)?0:height;
         current_context->proxy_intformat = internalformat;
     } else {
+        swizzle_process_upload(target, &format, &type);
         pick_internalformat(&internalformat, &type, &format, &data);
         es3_functions.glTexImage2D(target, level, internalformat, width, height, border, format, type, data);
     }
 }
 
-bool filter_params_integer(GLenum target, GLenum pname, GLint param) {
+INTERNAL bool filter_params_integer(GLenum target, GLenum pname, GLint param) {
     return true;
 }
-bool filter_params_float(GLenum target, GLenum pname, GLfloat param) {
+INTERNAL bool filter_params_float(GLenum target, GLenum pname, GLfloat param) {
     if(pname == GL_TEXTURE_LOD_BIAS) {
         if(param != 0.0f) {
             static bool lodbias_trigger = false;
@@ -165,6 +197,7 @@ void glTexParameteri( 	GLenum target,
     if(!current_context) return;
     if(!filter_params_integer(target, pname, param)) return;
     if(!filter_params_float(target, pname, (GLfloat)param)) return;
+    swizzle_process_swizzle_param(target, pname, &param);
     switch (pname) {
         case GL_TEXTURE_MIN_FILTER:
         case GL_TEXTURE_MAG_FILTER:
@@ -188,6 +221,7 @@ void glTexParameteriv( 	GLenum target,
     if(!current_context) return;
     if(!filter_params_integer(target, pname, *params)) return;
     if(!filter_params_float(target, pname, (GLfloat)*params)) return;
+    swizzle_process_swizzle_param(target, pname, params);
     es3_functions.glTexParameteriv(target, pname, params);
 }
 static bool trigger_gltexparameteri = false;
@@ -202,8 +236,9 @@ void glTexParameterIiv( 	GLenum target,
         }
         return;
     }
-    es3_functions.glTexParameteriv(target, pname, params);
+    swizzle_process_swizzle_param(target, pname, params);
 }
+
 void glTexParameterIuiv( 	GLenum target,
                             GLenum pname,
                             const GLuint * params) {
@@ -215,7 +250,7 @@ void glTexParameterIuiv( 	GLenum target,
         }
         return;
     }
-    es3_functions.glTexParameteriv(target, pname, (const GLint*)params);
+    swizzle_process_swizzle_param(target, pname, params);
 }
 
 void glRenderbufferStorage(	GLenum target,
@@ -269,7 +304,7 @@ void glEnable(GLenum cap) {
     es3_functions.glEnable(cap);
 }
 
-int get_buffer_index(GLenum buffer) {
+INTERNAL int get_buffer_index(GLenum buffer) {
     switch (buffer) {
         case GL_ARRAY_BUFFER: return 0;
         case GL_COPY_READ_BUFFER: return 1;
@@ -284,7 +319,7 @@ int get_buffer_index(GLenum buffer) {
     }
 }
 
-int get_base_buffer_index(GLenum buffer) {
+INTERNAL int get_base_buffer_index(GLenum buffer) {
     switch (buffer) {
         case GL_ATOMIC_COUNTER_BUFFER: return 0;
         case GL_SHADER_STORAGE_BUFFER: return 1;
@@ -294,7 +329,7 @@ int get_base_buffer_index(GLenum buffer) {
     }
 }
 
-GLenum get_base_buffer_enum(int buffer_index) {
+INTERNAL GLenum get_base_buffer_enum(int buffer_index) {
     switch (buffer_index) {
         case 0: return GL_ATOMIC_COUNTER_BUFFER;
         case 1: return GL_SHADER_STORAGE_BUFFER;
@@ -385,6 +420,15 @@ void glDepthRange(GLdouble nearVal,
                   GLdouble farVal) {
     if(!current_context) return;
     es3_functions.glDepthRangef((GLfloat)nearVal, (GLfloat)farVal);
+}
+
+void glDeleteTextures(GLsizei n, const GLuint *textures) {
+    if(!current_context) return;
+    es3_functions.glDeleteTextures(n, textures);
+    for(int i = 0; i < n; i++) {
+        void* tracker = unordered_map_remove(current_context->texture_swztrack_map, (void*)textures[i]);
+        free(tracker);
+    }
 }
 
 void glDebugMessageControl( 	GLenum source,

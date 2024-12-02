@@ -4,6 +4,7 @@
 #include "proc.h"
 #include "egl.h"
 #include <stdbool.h>
+#include "swizzle.h"
 void buffer_copier_init(context_t* context) {
     framebuffer_copier_t* copier = &context->framebuffer_copier;
     while(es3_functions.glGetError() != 0) {}
@@ -37,26 +38,11 @@ static void buffer_copier_store(GLint x, GLint y, GLsizei w, GLsizei h) {
     es3_functions.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, current_context->draw_framebuffer);
 }
 
-static GLenum get_target_query_param(GLenum target) {
-    switch (target) {
-        case GL_TEXTURE_2D: return GL_TEXTURE_BINDING_2D;
-        case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
-        case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
-        case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
-        case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
-        case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
-        case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
-            return GL_TEXTURE_BINDING_CUBE_MAP;
-        default:
-            return GL_NONE;
-    }
-}
-
 static void buffer_copier_release(GLenum target, GLint level, GLint x, GLint y, GLsizei w, GLsizei h) {
     framebuffer_copier_t* copier = &current_context->framebuffer_copier;
     if(!copier->ready) return;
     GLint current_texbind;
-    GLenum target_query = get_target_query_param(target);
+    GLenum target_query = get_textarget_query_param(target);
     if(target_query == GL_NONE) return;
     es3_functions.glGetIntegerv(target_query, &current_texbind);
     es3_functions.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, copier->destfb);
@@ -77,7 +63,7 @@ void glGetTexImage( 	GLenum target,
     if(format != GL_RGBA && format != GL_RGBA_INTEGER && type != GL_UNSIGNED_BYTE && type != GL_UNSIGNED_INT && type != GL_INT && type != GL_FLOAT) goto unsupported;
     framebuffer_copier_t* copier = &current_context->framebuffer_copier;
     GLint texture;
-    es3_functions.glGetIntegerv(get_target_query_param(target), &texture);
+    es3_functions.glGetIntegerv(get_textarget_query_param(target), &texture);
     es3_functions.glBindFramebuffer(GL_READ_FRAMEBUFFER, copier->tempfb);
     es3_functions.glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, target, texture, level);
     GLint w, h;
@@ -116,6 +102,7 @@ void glTexSubImage2D(GLenum target,
                      GLenum type,
                      const void * data) {
     if(!current_context) return;
+    swizzle_process_upload(target, &format, &type);
     if(format == GL_DEPTH_COMPONENT) {
         framebuffer_copier_t* copier = &current_context->framebuffer_copier;
         if(width == copier->depthWidth && height == copier->depthHeight && copier->depthData == data) {
@@ -141,7 +128,7 @@ void glCopyTexSubImage2D(GLenum target,
         framebuffer_copier_t* copier = &current_context->framebuffer_copier;
         if(!copier->ready) return;
         GLint texture;
-        es3_functions.glGetIntegerv(get_target_query_param(target), &texture);
+        es3_functions.glGetIntegerv(get_textarget_query_param(target), &texture);
         es3_functions.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, copier->destfb);
         es3_functions.glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, target, texture, level);
         es3_functions.glBlitFramebuffer(x, y, width+x, height+y, xoffset, yoffset, width+xoffset, height+yoffset, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
