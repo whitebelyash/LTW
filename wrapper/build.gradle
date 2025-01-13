@@ -12,12 +12,6 @@ android {
         targetSdk 33
         versionCode 1
         versionName "1.0"
-
-        externalNativeBuild {
-            ndkBuild {
-                arguments '-j24'
-            }
-        }
     }
 
     buildTypes {
@@ -31,13 +25,9 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
-    ndkVersion = "25.2.9519653"
-    externalNativeBuild {
-        ndkBuild {
-            path file('src/main/tinywrapper/Android.mk')
-        }
-    }
 }
 
 dependencies {
+    implementation project(path: ':ltw')
 }
+
