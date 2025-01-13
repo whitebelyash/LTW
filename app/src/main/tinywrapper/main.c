@@ -434,6 +434,22 @@ void glDeleteTextures(GLsizei n, const GLuint *textures) {
     }
 }
 
+static bool noerror = false;
+
+__attribute((constructor)) void init_noerror() {
+    const char* noerror_env = getenv("LIBGL_NOERROR");
+    if(noerror_env == NULL) return;
+    noerror = (*noerror_env) != '0';
+    if(!noerror) {
+        printf("LTW will NOT ignore GL errors. This may break mods, consider yourself warned.\n");
+    }
+}
+
+GLenum glGetError() {
+    if(noerror) return 0;
+    else return es3_functions.glGetError();
+}
+
 void glDebugMessageControl( 	GLenum source,
                                GLenum type,
                                GLenum severity,
