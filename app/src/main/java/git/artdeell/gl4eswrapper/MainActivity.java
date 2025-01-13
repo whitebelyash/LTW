@@ -32,6 +32,7 @@ public class MainActivity extends Activity {
         }
         String copyCommand = "cp " + copySrc + "/* "+copyDst+"/";
         try {
+            Runtime.getRuntime().exec("am force-stop "+targetAppInfo.packageName);
             ProcessBuilder processBuilder = new ProcessBuilder("su", "-c", copyCommand);
             Process process = processBuilder.start();
             int errorCode = process.waitFor();
