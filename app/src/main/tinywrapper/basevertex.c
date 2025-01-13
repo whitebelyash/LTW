@@ -1,6 +1,7 @@
-//
-// Created by maks on 05.03.2024.
-//
+/**
+ * Created by: artDev
+ * Copyright (c) 2025 artDev, SerpentSpirale, PojavLauncherTeam, Digital Genesis LLC. All rights reserved.
+ */
 #include <GLES3/gl31.h>
 #include "proc.h"
 #include "egl.h"

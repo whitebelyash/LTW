@@ -1,3 +1,8 @@
+/**
+ * Created by: artDev
+ * Copyright (c) 2025 artDev, SerpentSpirale, PojavLauncherTeam, Digital Genesis LLC. All rights reserved.
+ */
+
 /*
 // Java program to assemble this file from the GLES3 header.
 package pfngernerator;

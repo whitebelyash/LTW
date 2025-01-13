@@ -1,6 +1,7 @@
-//
-// Created by maks on 04.03.2024.
-//
+/**
+ * Created by: artDev
+ * Copyright (c) 2025 artDev, SerpentSpirale, PojavLauncherTeam, Digital Genesis LLC. All rights reserved.
+ */
 #include "int_hash.h"
 #include "../libraryinternal.h"
 static size_t intmap_hash(void* key) {

@@ -1,6 +1,7 @@
-//
-// Created by serpentspirale on 13/01/2022.
-//
+/**
+ * Created by: SerpentSpirale
+ * Copyright (c) 2025 SerpentSpirale, artDev, PojavLauncherTeam, Digital Genesis LLC. All rights reserved.
+ */
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>

@@ -1,4 +1,7 @@
-//#import <Foundation/Foundation.h>
+/**
+ * Created by: artDev, DuyKhanhTran
+ * Copyright (c) 2025 artDev, SerpentSpirale, PojavLauncherTeam, Digital Genesis LLC. All rights reserved.
+ */
 #include <stdio.h>
 #include <dlfcn.h>
 

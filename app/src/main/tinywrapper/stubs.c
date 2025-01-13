@@ -1,3 +1,8 @@
+/**
+ * Created by: artDev
+ * Copyright (c) 2025 artDev, SerpentSpirale, PojavLauncherTeam, Digital Genesis LLC. All rights reserved.
+ */
+
 //run:
 #include <stdbool.h>
 #include <stdio.h>

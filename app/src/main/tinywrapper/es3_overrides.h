@@ -1,6 +1,7 @@
-//
-// Created by maks on 03.03.2024.
-//
+/**
+ * Created by: artDev
+ * Copyright (c) 2025 artDev, SerpentSpirale, PojavLauncherTeam, Digital Genesis LLC. All rights reserved.
+ */
 void glClearDepth(double depth);
 void* glMapBuffer(GLenum target, GLenum access);
 void glGetTexLevelParameteriv(GLenum target, GLint level, GLenum pname, GLint *params);
