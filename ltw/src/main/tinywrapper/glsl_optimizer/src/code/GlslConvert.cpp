@@ -585,7 +585,6 @@ void GlslConvert::InitContext(struct gl_context* ctx, ApiTarget api, int vGlslVe
     ctx->Const.MinProgramTexelOffset = -8;
     ctx->Const.MaxProgramTexelOffset = 7;
     ctx->Const.MaxLights = 0;
-    ctx->Const.MaxTextureCoordUnits = 0;
     ctx->Const.MaxTextureUnits = 0;
     ctx->Const.MaxUniformBufferBindings = 84;
     ctx->Const.MaxVertexStreams = 4;
