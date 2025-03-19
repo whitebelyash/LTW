@@ -1,6 +1,7 @@
 /**
  * Created by: artDev
- * Copyright (c) 2025 artDev, SerpentSpirale, PojavLauncherTeam, Digital Genesis LLC. All rights reserved.
+ * Copyright (c) 2025 artDev, SerpentSpirale, PojavLauncherTeam, Digital Genesis LLC.
+ * For use under LGPL-3.0
  */
 #include "int_hash.h"
 #include "../libraryinternal.h"
