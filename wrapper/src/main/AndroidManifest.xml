@@ -18,6 +18,6 @@
         </activity>
     </application>
     <queries>
-        <package android:name="net.kdt.pojavlaunch.debug"/>
+        <package android:name="git.artdeell.mojo.debug"/>
     </queries>
 </manifest>
