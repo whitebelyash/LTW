@@ -26,5 +26,4 @@ jobs:
          name: output-aar
          path: ltw/build/outputs/aar/ltw-release.aar
          if-no-files-found: error
-         retention-days: 7
        
