@@ -57,7 +57,7 @@ static void apply_swizzles(GLenum target, texture_swizzle_track_t* track) {
 }
 
 INTERNAL void swizzle_process_upload(GLenum target, GLenum* format, GLenum* type) {
-    texture_swizzle_track_t* track = get_swizzle_track(target);
+/*    texture_swizzle_track_t* track = get_swizzle_track(target);
     if(track == NULL) return;
     bool apply_upload_bgra = false;
     bool apply_goofy_order = false;
@@ -69,11 +69,14 @@ INTERNAL void swizzle_process_upload(GLenum target, GLenum* format, GLenum* type
         apply_goofy_order = true;
         *type = GL_UNSIGNED_BYTE;
     }
+    if((*type) == 0x8367) {
+        *type = GL_UNSIGNED_BYTE;
+    }
     if(apply_goofy_order != track->goofy_byte_order || apply_upload_bgra != track->upload_bgra) {
         track->goofy_byte_order = apply_goofy_order;
         track->upload_bgra = apply_upload_bgra;
         apply_swizzles(target, track);
-    }
+    }*/
 }
 
 INTERNAL void swizzle_process_swizzle_param(GLenum target, GLenum swizzle_param, const GLenum* swizzle) {
