@@ -9,6 +9,6 @@
 
 #include <GLES3/gl3.h>
 
-extern void pick_internalformat(GLint *internalformat, GLenum* type, GLenum* format, GLvoid const** data);
+extern void pick_internalformat(GLint *internalformat, GLenum* type, GLenum* format, GLvoid const** data, bool is_shadowmap);
 
 #endif //POJAVLAUNCHER_GLFORMATS_H

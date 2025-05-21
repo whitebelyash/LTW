@@ -61,6 +61,7 @@ typedef struct {
     EGLContext phys_context;
     bool context_rdy;
     bool es31, es32, buffer_storage;
+    bool force_depth32_fallback;
     GLint shader_version;
     basevertex_renderer_t basevertex;
     GLuint multidraw_element_buffer;

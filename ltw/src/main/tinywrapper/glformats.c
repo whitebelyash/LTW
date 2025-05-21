@@ -5,6 +5,7 @@
  */
 
 #include <stdbool.h>
+#include "egl.h"
 #include "glformats.h"
 #include "libraryinternal.h"
 #include "GL/gl.h"
@@ -75,8 +76,8 @@ void pick_color_renderable_format(GLint* internalformat, GLenum* type, GLenum* f
 
 }
 
-void pick_format(GLint internalformat, GLenum* type, GLenum* format) {
-    switch (internalformat) {
+void pick_format(GLint *internalformat, GLenum* type, GLenum* format, bool shadowmap) {
+    switch (*internalformat) {
         // Unsized formats. In this case we always prefer the "byte" versions of them (meaning 32bit/24bit color)
         case GL_RGB: *format=GL_RGB; *type = GL_UNSIGNED_BYTE; break;
         case GL_RGBA: *format=GL_RGBA; *type = GL_UNSIGNED_BYTE; break;
@@ -124,6 +125,10 @@ void pick_format(GLint internalformat, GLenum* type, GLenum* format) {
         case GL_RGB5_A1: *format=GL_RGBA; *type=GL_UNSIGNED_BYTE; break;
         case GL_RGBA4: *format=GL_RGBA; *type=GL_UNSIGNED_BYTE; break;
         case GL_RGB10_A2: *format=GL_RGBA; *type=GL_UNSIGNED_INT_2_10_10_10_REV; break;
+        // Two legacy GL formats. From testing, OptiFine wants these to be floats.
+        case GL_RGBA12:
+        case GL_RGBA16:
+            *internalformat = GL_RGBA16F;
         case GL_RGBA16F: *format=GL_RGBA; *type=GL_HALF_FLOAT; break;
         case GL_RGBA32F: *format=GL_RGBA; *type=GL_FLOAT; break;
         case GL_RGBA8UI: *format=GL_RGBA_INTEGER; *type=GL_UNSIGNED_BYTE; break;
@@ -133,18 +138,37 @@ void pick_format(GLint internalformat, GLenum* type, GLenum* format) {
         case GL_RGBA16I: *format=GL_RGBA_INTEGER; *type=GL_SHORT; break;
         case GL_RGBA32I: *format=GL_RGBA_INTEGER; *type=GL_INT; break;
         case GL_RGBA32UI: *format=GL_RGBA_INTEGER; *type=GL_UNSIGNED_INT; break;
-        // Sized depth formats. Unsized formats handled before this function
+        // Depth formats with fallbacks for unsized variants.
+        fallback_depth16:
+            *format = GL_DEPTH_COMPONENT16;
         case GL_DEPTH_COMPONENT16: *format = GL_DEPTH_COMPONENT; *type = GL_UNSIGNED_SHORT; break;
         case GL_DEPTH_COMPONENT24: *format = GL_DEPTH_COMPONENT; *type = GL_UNSIGNED_INT; break;
+        fallback_depth32:
+        case GL_DEPTH_COMPONENT32:
+            *internalformat = GL_DEPTH_COMPONENT32F;
         case GL_DEPTH_COMPONENT32F: *format = GL_DEPTH_COMPONENT; *type = GL_FLOAT; break;
+        case GL_DEPTH_STENCIL:
+            *internalformat = GL_DEPTH24_STENCIL8;
         case GL_DEPTH24_STENCIL8: *format = GL_DEPTH_STENCIL; *type = GL_UNSIGNED_INT_24_8; break;
         case GL_DEPTH32F_STENCIL8: *format = GL_DEPTH_STENCIL; *type = GL_FLOAT_32_UNSIGNED_INT_24_8_REV; break;
         case GL_STENCIL_INDEX8: *format = GL_STENCIL_INDEX; *type = GL_UNSIGNED_BYTE; break;
+        case GL_DEPTH_COMPONENT:
+            if(shadowmap || current_context->force_depth32_fallback) goto fallback_depth32;
+            else goto fallback_depth16;
+        default:
+            printf("LTW: pick_format fallthrough: %x\n", *internalformat);
     }
+
 }
 
 
-INTERNAL void pick_internalformat(GLint *internalformat, GLenum* type, GLenum* format, GLvoid const** data) {
+INTERNAL void pick_internalformat(GLint *internalformat, GLenum* type, GLenum* format, GLvoid const** data, bool is_shadow) {
+    if(*data == NULL) {
+        // Appears that desktop GL completely discards type and format without data. Pick a correct (sized if unsized is unavailable)
+        // format for the d
+        pick_format(internalformat, type, format, is_shadow);
+        return;
+    }
     // Compared to OpenGL ES, desktop OpenGL implicitly supports way more depth/RGB formats without explicit sizing.
     // This function converts appropriate unsized formats to sized ones according to the type.
     bool convert_data;
@@ -263,12 +287,6 @@ INTERNAL void pick_internalformat(GLint *internalformat, GLenum* type, GLenum* f
                     }
             }
             break;
-    }
-    // GL applications do not have to supply valid data to "type" and "format" fields if they are not uploading any data
-    // So automatically pick the best options from ones available.
-    if(*data == NULL) {
-        pick_format(*internalformat, type, format);
-        return;
     }
     if(*data != NULL && convert_data) {
         printf("LTW: we don't support format conversion at the moment. Sorry!\n");
