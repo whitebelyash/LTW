@@ -2143,7 +2143,7 @@ IR_TO_GLSL::visit(ir_loop_jump* ir)
 void
 IR_TO_GLSL::visit(ir_emit_vertex* ir)
 {
-	generated_source.append("emit-vertex-TODO");
+	generated_source.append("EmitVertex();");
 	ir->stream->accept(this);
 	generated_source.append("\n");
 }
@@ -2151,7 +2151,7 @@ IR_TO_GLSL::visit(ir_emit_vertex* ir)
 void
 IR_TO_GLSL::visit(ir_end_primitive* ir)
 {
-	generated_source.append("end-primitive-TODO");
+	generated_source.append("EndPrimitive();");
 	ir->stream->accept(this);
 	generated_source.append("\n");
 }
@@ -2159,7 +2159,7 @@ IR_TO_GLSL::visit(ir_end_primitive* ir)
 void
 IR_TO_GLSL::visit(ir_barrier*)
 {
-	generated_source.append("barrier-TODO\n");
+	generated_source.append("barrier();\n");
 }
 
 void IR_TO_GLSL::visit_uniform_block(ir_variable *ir) {
