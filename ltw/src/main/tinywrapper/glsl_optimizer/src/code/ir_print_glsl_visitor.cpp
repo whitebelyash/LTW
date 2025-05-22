@@ -178,6 +178,12 @@ char * IR_TO_GLSL::Convert(
             // Skip non-variables
             if(ir->ir_type != ir_type_variable) continue;
             auto* var = (ir_variable*)ir;
+            // Check for interpolation type. Need to enable the noperspective interpolation extension
+            // if used.
+            if(var->data.interpolation == glsl_interp_mode::INTERP_MODE_NOPERSPECTIVE && !state->NV_shader_noperspective_interpolation_enable) {
+                state->NV_shader_noperspective_interpolation_enable = true;
+                res.append("#extension GL_NV_shader_noperspective_interpolation : enable\n");
+            }
             // Skip non-internal variables
             if(strstr(var->name, "gl_") != var->name) continue;
             const char* name = var->name;
