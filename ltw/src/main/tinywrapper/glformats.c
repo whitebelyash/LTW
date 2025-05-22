@@ -209,8 +209,7 @@ INTERNAL void pick_internalformat(GLint *internalformat, GLenum* type, GLenum* f
     bool convert_data;
     switch (*internalformat) {
         case GL_DEPTH_COMPONENT32:
-            // 1.21.5 workaround: fix internalformat (not handled in ES drivers cause it's from GL 1.4)
-            // Work around by selecting the equivalent type (for float) or 24-bit (for int)
+            // Select the equivalent type (32f for float, 24 for int)
             if(*type == GL_FLOAT) {
                 *internalformat = GL_DEPTH_COMPONENT32F;
             } else {
