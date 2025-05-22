@@ -112,6 +112,9 @@ void build_extension_string(context_t* context) {
     if(context->buffer_storage) {
         add_extra_extension(context, &length, "GL_ARB_buffer_storage");
     }
+    if(context->buffer_texture_ext || context->es32) {
+        add_extra_extension(context, &length, "ARB_texture_buffer_object");
+    }
     // More extensions are possible, but will need way more wraps and tracking.
     fin_extra_extensions(context, length);
 }
@@ -139,6 +142,7 @@ static void find_esversion(context_t* context) {
 
     const char* extensions = (const char*) es3_functions.glGetString(GL_EXTENSIONS);
     if(strstr(extensions, "GL_EXT_buffer_storage")) context->buffer_storage = true;
+    if(strstr(extensions, "GL_EXT_texture_buffer")) context->buffer_texture_ext = true;
 
     build_extension_string(context);
 
