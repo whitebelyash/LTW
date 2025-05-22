@@ -457,7 +457,11 @@ IR_TO_GLSL::visit(ir_variable* ir)
 		const int binding_base = (this->state->stage == MESA_SHADER_VERTEX ? (int)VERT_ATTRIB_GENERIC0 : (int)FRAG_RESULT_DATA0);
 		const int location = ir->data.location - binding_base;
 		snprintf(loc, sizeof(loc), "layout(location=%d) ", location);
-	}
+	} else if(!ir->data.explicit_location && ir->data.mode == ir_var_shader_out && this->state->stage == MESA_SHADER_FRAGMENT) {
+        generated_source.append("/* LTW INSERT LOCATION ");
+        print_var_name(ir);
+        generated_source.append(" LTW */");
+    }
 	else if (ir->data.location != -1)
 	{
 		snprintf(loc, sizeof(loc), "location=%i ", ir->data.location);
