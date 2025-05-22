@@ -173,11 +173,20 @@ char * IR_TO_GLSL::Convert(
 			res.append("#extension GL_EXT_texture_array : enable\n");
 
         // Search for internal GL variables and enable extensions based on them
+        bool uses_buffer_sampler = false;
         foreach_in_list(ir_instruction, ir, instructions)
         {
             // Skip non-variables
             if(ir->ir_type != ir_type_variable) continue;
             auto* var = (ir_variable*)ir;
+            // Check for buffer texture samplers. Need to enable (and/or set precision) for them
+            const char* type = var->type->name;
+            if(type != nullptr && (strstr(type, "samplerBuffer") != nullptr || strstr(type, "imageBuffer") != nullptr) && !uses_buffer_sampler) {
+                uses_buffer_sampler = true;
+                if(state->es_shader && state->language_version < 320) {
+                    res.append("#extension GL_EXT_texture_buffer : enable\n");
+                }
+            }
             // Check for interpolation type. Need to enable the noperspective interpolation extension
             // if used.
             if(var->data.interpolation == glsl_interp_mode::INTERP_MODE_NOPERSPECTIVE && !state->NV_shader_noperspective_interpolation_enable) {
@@ -210,6 +219,14 @@ char * IR_TO_GLSL::Convert(
                        "precision %1$s usampler3D;\n"
                        "precision %1$s usamplerCube;\n"
                        "precision %1$s usampler2DArray;\n", "lowp");
+            if(uses_buffer_sampler) {
+                res.append("precision %1$s samplerBuffer;\n"
+                           "precision %1$s isamplerBuffer;\n"
+                           "precision %1$s usamplerBuffer;\n"
+                           "precision %1$s imageBuffer;\n"
+                           "precision %1$s iimageBuffer;\n"
+                           "precision %1$s uimageBuffer;\n", "lowp");
+            }
         }
 
 		for (unsigned i = 0; i < state->num_user_structures; i++)

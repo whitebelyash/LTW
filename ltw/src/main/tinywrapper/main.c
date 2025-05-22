@@ -435,6 +435,36 @@ void glDeleteTextures(GLsizei n, const GLuint *textures) {
     }
 }
 
+static bool buf_tex_trigger = false;
+
+void glTexBuffer(GLenum target, GLenum internalFormat, GLuint buffer) {
+    if(!current_context) return;
+    if(current_context->es32) es3_functions.glTexBuffer(target, internalFormat, buffer);
+    else if(current_context->buffer_texture_ext) es3_functions.glTexBufferEXT(target, internalFormat, buffer);
+    else if(!buf_tex_trigger) {
+        buf_tex_trigger = true;
+        printf("LTW: Buffer textures aren't supported on your device\n");
+    }
+}
+
+void glTexBufferARB(GLenum target, GLenum internalFormat, GLuint buffer) {
+    glTexBuffer(target, internalFormat, buffer);
+}
+
+void glTexBufferRange(GLenum target, GLenum internalFormat, GLuint buffer, GLintptr offset, GLsizeiptr size) {
+    if(!current_context) return;
+    if(current_context->es32) es3_functions.glTexBufferRange(target, internalFormat, buffer, offset, size);
+    else if(current_context->buffer_texture_ext) es3_functions.glTexBufferRangeEXT(target, internalFormat, buffer, offset, size);
+    else if(!buf_tex_trigger) {
+        buf_tex_trigger = true;
+        printf("LTW: Buffer textures aren't supported on your device\n");
+    }
+}
+
+void glTexBufferRangeARB(GLenum target, GLenum internalFormat, GLuint buffer, GLintptr offset, GLsizeiptr size) {
+    glTexBufferRange(target, internalFormat, buffer, offset, size);
+}
+
 static bool noerror = false;
 
 __attribute((constructor)) void init_noerror() {
