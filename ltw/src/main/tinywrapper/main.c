@@ -166,7 +166,7 @@ void glTexImage2D(GLenum target, GLint level, GLint internalformat, GLsizei widt
         current_context->proxy_height = ((height<<level)>current_context->maxTextureSize)?0:height;
         current_context->proxy_intformat = internalformat;
     } else {
-        swizzle_process_upload(target, &format, &type);
+        if(data != NULL) swizzle_process_upload(target, &format, &type);
         pick_internalformat(&internalformat, &type, &format, &data, width == height);
         es3_functions.glTexImage2D(target, level, internalformat, width, height, border, format, type, data);
     }
