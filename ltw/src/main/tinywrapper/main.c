@@ -167,7 +167,7 @@ void glTexImage2D(GLenum target, GLint level, GLint internalformat, GLsizei widt
         current_context->proxy_intformat = internalformat;
     } else {
         if(data != NULL) swizzle_process_upload(target, &format, &type);
-        pick_internalformat(&internalformat, &type, &format, &data, width == height);
+        pick_internalformat(&internalformat, &type, &format, &data);
         es3_functions.glTexImage2D(target, level, internalformat, width, height, border, format, type, data);
     }
 }
@@ -469,11 +469,12 @@ static bool noerror = false;
 
 __attribute((constructor)) void init_noerror() {
     const char* noerror_env = getenv("LIBGL_NOERROR");
-    if(noerror_env == NULL) return;
+    if(noerror_env == NULL) goto warning;
     noerror = (*noerror_env) != '0';
-    if(!noerror) {
-        printf("LTW will NOT ignore GL errors. This may break mods, consider yourself warned.\n");
-    }
+    if(!noerror) goto warning;
+    return;
+    warning:
+    printf("LTW will NOT ignore GL errors. This may break mods, consider yourself warned.\n");
 }
 
 GLenum glGetError() {
