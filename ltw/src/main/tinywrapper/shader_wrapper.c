@@ -113,7 +113,6 @@ void glLinkProgram(GLuint program) {
         insert_fragout_pos(new_source, &nsrc_size, colorbind, i);
         changesMade = true;
     }
-    printf("LTW: chnages made: %i\n", changesMade);
     if(!changesMade) {
         free(new_source);
         goto fallthrough;
