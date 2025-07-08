@@ -72,7 +72,7 @@ static GLint pick_rg_internalformat(GLenum* type, bool* convert) {
     }
 }
 
-void pick_format(GLint *internalformat, GLenum* type, GLenum* format, bool shadowmap) {
+void pick_format(GLint *internalformat, GLenum* type, GLenum* format) {
     // Workarounds!
     switch (*internalformat) {
         // Two legacy GL formats. From testing, OptiFine wants these to be floats.
@@ -80,13 +80,10 @@ void pick_format(GLint *internalformat, GLenum* type, GLenum* format, bool shado
         case GL_RGBA16:
             *internalformat = GL_RGBA16F;
             break;
-        // OptiFine is vague with its depth format selection. Most shaders expect float depth, but
-        // GLES3 only supports it in 32-bit, which is not desirable. Let's only use floats for
-        // where they are actually used (in most shaders it's the shadowmap)
+        // Always use 32-bit float depth for GL_DEPTH_COMPONENT, because the 16-bit depth buffer
+        // causes z-fighting in the distance
         case GL_DEPTH_COMPONENT:
-            if(shadowmap || current_context->force_depth32_fallback)
-                *internalformat = GL_DEPTH_COMPONENT32F;
-            else *internalformat = GL_DEPTH_COMPONENT16;
+            *internalformat = GL_DEPTH_COMPONENT32F;
             break;
         // This appears to be one of the legacy formats from the FPE days, and is not even
         // listed in the format tables in 3.3 core. Still, MC uses it for the depth buffers.
@@ -197,11 +194,11 @@ void pick_format(GLint *internalformat, GLenum* type, GLenum* format, bool shado
 }
 
 
-INTERNAL void pick_internalformat(GLint *internalformat, GLenum* type, GLenum* format, GLvoid const** data, bool is_shadow) {
+INTERNAL void pick_internalformat(GLint *internalformat, GLenum* type, GLenum* format, GLvoid const** data) {
     if(*data == NULL) {
         // Appears that desktop GL completely discards type and format without data. Pick a correct (sized if unsized is unavailable)
         // format for the d
-        pick_format(internalformat, type, format, is_shadow);
+        pick_format(internalformat, type, format);
         return;
     }
     // Compared to OpenGL ES, desktop OpenGL implicitly supports way more depth/RGB formats without explicit sizing.
