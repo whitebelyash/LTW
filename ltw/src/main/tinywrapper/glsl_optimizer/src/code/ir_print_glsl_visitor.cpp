@@ -8,6 +8,7 @@
 #include "../util/macros.h"
 #include "../util/hash_table.h"
 #include "../util/u_string.h"
+#include "../compiler/glsl/ast.h"
 
 const char* const precision[] = { "", "highp ", "mediump ", "lowp " };
 
@@ -123,6 +124,70 @@ void IR_TO_GLSL::print_type_post(sbuffer& str, const glsl_type* t, bool arraySiz
 		if (!arraySize)
 			str.append("[%u]", t->length);
 	}
+}
+
+const char* str_primtype(GLenum type, bool out) {
+    if(!out) switch (type) {
+        case GL_POINTS: return "points";
+        case GL_LINE_STRIP:
+        case GL_LINES: return "lines";
+        case GL_LINE_STRIP_ADJACENCY:
+        case GL_LINES_ADJACENCY: return "lines_adjacency";
+        case GL_TRIANGLE_STRIP:
+        case GL_TRIANGLE_FAN:
+        case GL_TRIANGLES: return "triangles";
+        case GL_TRIANGLE_STRIP_ADJACENCY:
+        case GL_TRIANGLES_ADJACENCY: return "triangles_adjacency";
+        default:
+            printf("Unhandled geom shader input primtype: %x\n", type);
+            return "unknown";
+    }
+    else switch(type) {
+        case GL_POINTS: return "points";
+        case GL_LINE_STRIP: return "line_strip";
+        case GL_TRIANGLE_STRIP: return "triangle_strip";
+        default:
+            printf("Unhandled geom shader output primtype: %x\n", type);
+            return "unknown";
+    }
+}
+
+bool should_print_layout(const ast_type_qualifier* qual) {
+    return qual->flags.q.prim_type ||
+            qual->flags.q.max_vertices ||
+            qual->flags.q.local_size;
+}
+
+void print_layout(sbuffer& str, struct _mesa_glsl_parse_state* state, ast_type_qualifier* qual, bool out) {
+    bool first = true;
+#define I_LAYOUT_QUALIFIER(cmp_op, block) \
+    if(cmp_op) {        \
+        if(!first) str.append(","); \
+        else first = false;         \
+        block                       \
+    }
+#define LAYOUT_QUALIFIER(name, block) I_LAYOUT_QUALIFIER(qual->flags.q.name, block)
+#define LAYOUT_QUALIFIER_MASK(name, bit, block) I_LAYOUT_QUALIFIER(qual->flags.q.name & bit, block)
+    str.append("layout(");
+    LAYOUT_QUALIFIER(prim_type,{
+        str.append("%s", str_primtype(qual->prim_type, out));
+    })
+    LAYOUT_QUALIFIER(max_vertices,{
+        unsigned qual_max_vertices = !0;
+        qual->max_vertices->process_qualifier_constant(state, "max_vertices",
+                                   &qual_max_vertices, true);
+        str.append("max_vertices=%u", qual_max_vertices);
+    })
+    LAYOUT_QUALIFIER_MASK(local_size, 1 << 0, {
+        str.append("local_size_x=", state->cs_input_local_size[0]);
+    })
+    LAYOUT_QUALIFIER_MASK(local_size, 1 << 1, {
+        str.append("local_size_y=", state->cs_input_local_size[1]);
+    })
+    LAYOUT_QUALIFIER_MASK(local_size, 1 << 2, {
+        str.append("local_size_z=", state->cs_input_local_size[2]);
+    })
+    str.append(") ");
 }
 
 // DANGER, the function allocates a new string
@@ -242,6 +307,14 @@ char * IR_TO_GLSL::Convert(
 			}
 			res.append("};\n");
 		}
+        if(should_print_layout(state->in_qualifier)) {
+            print_layout(res, state, state->in_qualifier, false);
+            res.append("in;\n");
+        }
+        if(should_print_layout(state->out_qualifier)) {
+            print_layout(res, state, state->out_qualifier, true);
+            res.append("out;\n");
+        }
 	}
 
 	global_print_tracker global;
