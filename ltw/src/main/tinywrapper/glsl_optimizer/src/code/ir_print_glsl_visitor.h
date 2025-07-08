@@ -48,6 +48,7 @@ public:
 		exec_list	global_assignements;
 		void* mem_ctx;
 		bool	main_function_done;
+        bool enable_nan_check;
 	};
 
 public:

@@ -190,6 +190,31 @@ void print_layout(sbuffer& str, struct _mesa_glsl_parse_state* state, ast_type_q
     str.append(") ");
 }
 
+void nan_check_warn() {
+    static bool warned = false;
+    if(warned) return;
+    printf("LTW shader optimizer will emit NaN checks for fragment outputs. This may lead to loss of performance.\n");
+    warned = true;
+}
+
+void print_nan_check_funcs(sbuffer& str) {
+    nan_check_warn();
+    const char* nan_check_func_float =
+            "float _ltw_removenan(float colorVal) {\n"
+            "   if(isnan(colorVal)) return float(0);\n"
+            "   else return colorVal;\n"
+            "}\n";
+    str.append("%s",nan_check_func_float);
+    const char* nan_check_func_vector =
+            "%1$s _ltw_removenan(%1$s colorVal) {\n"
+            "   if(any(isnan(colorVal))) return %1$s(%2$s);\n"
+            "   else return colorVal;\n"
+            "}\n";
+    str.append(nan_check_func_vector, "vec2", "0,0");
+    str.append(nan_check_func_vector, "vec3", "0,0,0");
+    str.append(nan_check_func_vector, "vec4", "0,0,0,1");
+}
+
 // DANGER, the function allocates a new string
 // DO NOT FORGET TO FREE IT
 char * IR_TO_GLSL::Convert(
@@ -197,6 +222,7 @@ char * IR_TO_GLSL::Convert(
 	struct _mesa_glsl_parse_state* state)
 {
 	sbuffer res;
+    bool shader_nan_check = false;
 
 	if (state)
 	{
@@ -315,9 +341,16 @@ char * IR_TO_GLSL::Convert(
             print_layout(res, state, state->out_qualifier, true);
             res.append("out;\n");
         }
+        const char* nan_check_env = getenv("LTW_SHADERCONV_CHECKNAN");
+        bool emit_nan_check = nan_check_env != nullptr && *nan_check_env == '1';
+        if(emit_nan_check && state->stage == MESA_SHADER_FRAGMENT) {
+            print_nan_check_funcs(res);
+            shader_nan_check = true;
+        }
 	}
 
 	global_print_tracker global;
+    global.enable_nan_check = shader_nan_check;
 	int uses_texlod_impl = 0;
 	int uses_texlodproj_impl = 0;
 	loop_state* ls = analyze_loop_variables(instructions);
@@ -1586,6 +1619,11 @@ IR_TO_GLSL::emit_assignment_part(ir_dereference* lhs, ir_rvalue* rhs, unsigned w
 
 	generated_source.append(" = ");
 
+    bool rhs_nan_check = global->enable_nan_check &&
+            lhs->variable_referenced()->data.mode == ir_var_shader_out &&
+            lhsType->is_float();
+    if(rhs_nan_check) generated_source.append("_ltw_removenan(");
+
 	bool typeMismatch = !dstIndex && (lhsType != rhsType);
 	const bool addSwizzle = hasWriteMask && typeMismatch;
 	if (typeMismatch)
@@ -1603,6 +1641,8 @@ IR_TO_GLSL::emit_assignment_part(ir_dereference* lhs, ir_rvalue* rhs, unsigned w
 		if (addSwizzle)
 			generated_source.append(".%s", mask);
 	}
+
+    if(rhs_nan_check) generated_source.append(")");
 }
 
 // Try to print (X = X + const) as (X += const), mostly to satisfy
@@ -1802,7 +1842,7 @@ void IR_TO_GLSL::print_float_checked(sbuffer& str, float f) {
         char float_dest[5];
         snprintf(float_dest, 5, "%f", f);
         valid_float = strstr(float_dest, "nan") == nullptr && strstr(float_dest, "inf") == nullptr;
-	if (!valid_float) 
+	if (!valid_float)
 		{
 		// Non-printable float. If we have bit conversions, we're fine. otherwise do hand-wavey things in print_float().
 		if ((state->es_shader && (state->language_version >= 300))
