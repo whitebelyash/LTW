@@ -286,9 +286,6 @@ char * IR_TO_GLSL::Convert(
 	return res.c_str_take_ownership();
 }
 
-const char* IR_TO_GLSL::processed_uniform_blocks[64] = { 0 };
-int   IR_TO_GLSL::num_uniform_blocks = 0;
-
 IR_TO_GLSL::IR_TO_GLSL(
 	sbuffer& str,
 	global_print_tracker* vGlobals,
@@ -2169,18 +2166,18 @@ IR_TO_GLSL::visit(ir_barrier*)
 void IR_TO_GLSL::visit_uniform_block(ir_variable *ir) {
 	const glsl_type* itype = ir->get_interface_type();
 
-	for ( int i = 0; i < num_uniform_blocks; i++ )
+	for ( int i = 0; i < global->num_uniform_blocks; i++ )
 	{
-		if ( itype->name == processed_uniform_blocks[i] )
+		if ( itype->name == global->processed_uniform_blocks[i] )
 		{
 			skipped_this_ir = true;
 			return;
 		}
 	}
 
-	assert( num_uniform_blocks < sizeof( processed_uniform_blocks ) / sizeof( processed_uniform_blocks[0] ) );
+	assert( global->num_uniform_blocks < sizeof( global->processed_uniform_blocks ) / sizeof( global->processed_uniform_blocks[0] ) );
 
-	processed_uniform_blocks[num_uniform_blocks++] = itype->name;
+    global->processed_uniform_blocks[global->num_uniform_blocks++] = itype->name;
 
 	const char* packing = nullptr;
 

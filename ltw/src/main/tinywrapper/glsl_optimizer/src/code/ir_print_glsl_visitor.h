@@ -41,6 +41,8 @@ public:
 		global_print_tracker();
 		~global_print_tracker();
 
+        const char* processed_uniform_blocks[64] = { 0 };
+        int   num_uniform_blocks = 0;
 		unsigned	var_counter;
 		hash_table*	var_hash;
 		exec_list	global_assignements;
@@ -52,8 +54,6 @@ public:
 	static char * Convert(
 		exec_list *instructions,
 		struct _mesa_glsl_parse_state *state);
-	static const char* processed_uniform_blocks[64];
-	static int   num_uniform_blocks;
 	static void print_type(sbuffer& str, const glsl_type *t, bool arraySize);
 	static void print_type_post(sbuffer& str, const glsl_type *t, bool arraySize);
 
