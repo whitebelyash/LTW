@@ -115,6 +115,36 @@ void glTexSubImage2D(GLenum target,
     es3_functions.glTexSubImage2D(target, level, xoffset, yoffset, width, height, format, type, data);
 }
 
+void texture_blit_framebuffer(GLenum target,
+                              GLint level,
+                              GLint xoffset,
+                              GLint yoffset,
+                              GLint x,
+                              GLint y,
+                              GLsizei width,
+                              GLsizei height,
+                              bool depth) {
+    framebuffer_copier_t* copier = &current_context->framebuffer_copier;
+    if(!copier->ready) return;
+
+    GLenum fb_attachment;
+    GLbitfield fb_blit_bit;
+    if(depth) {
+        fb_attachment = GL_DEPTH_ATTACHMENT;
+        fb_blit_bit = GL_DEPTH_BUFFER_BIT;
+    }else {
+        fb_attachment = GL_COLOR_ATTACHMENT0;
+        fb_blit_bit = GL_COLOR_BUFFER_BIT;
+    }
+
+    GLint texture;
+    es3_functions.glGetIntegerv(get_textarget_query_param(target), &texture);
+    es3_functions.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, copier->destfb);
+    es3_functions.glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, fb_attachment, target, texture, level);
+    es3_functions.glBlitFramebuffer(x, y, width+x, height+y, xoffset, yoffset, width+xoffset, height+yoffset, fb_blit_bit, GL_NEAREST);
+    es3_functions.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, current_context->draw_framebuffer);
+}
+
 void glCopyTexSubImage2D(GLenum target,
                          GLint level,
                          GLint xoffset,
@@ -123,17 +153,21 @@ void glCopyTexSubImage2D(GLenum target,
                          GLint y,
                          GLsizei width,
                          GLsizei height) {
-    es3_functions.glGetError();
-    es3_functions.glCopyTexSubImage2D(target, level, xoffset, yoffset, x, y, width, height);
-    // The QCOM driver is a pathological liar and emits wrong GL errors. Abuse this to decide when we actually need to at least try copying depth.
-    if(es3_functions.glGetError() == GL_INVALID_OPERATION) {
-        framebuffer_copier_t* copier = &current_context->framebuffer_copier;
-        if(!copier->ready) return;
-        GLint texture;
-        es3_functions.glGetIntegerv(get_textarget_query_param(target), &texture);
-        es3_functions.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, copier->destfb);
-        es3_functions.glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, target, texture, level);
-        es3_functions.glBlitFramebuffer(x, y, width+x, height+y, xoffset, yoffset, width+xoffset, height+yoffset, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-        es3_functions.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, current_context->draw_framebuffer);
+    if(current_context->es31) {
+        GLint depthtype;
+        es3_functions.glGetTexLevelParameteriv(target, level, GL_TEXTURE_DEPTH_TYPE, &depthtype);
+        if(depthtype != GL_NONE) {
+            texture_blit_framebuffer(target, level, xoffset, yoffset, x, y, width, height, true);
+        }else {
+            texture_blit_framebuffer(target, level, xoffset, yoffset, x, y, width, height, false);
+        }
+    } else {
+        es3_functions.glGetError();
+        es3_functions.glCopyTexSubImage2D(target, level, xoffset, yoffset, x, y, width, height);
+        // The QCOM driver is a pathological liar and emits wrong GL errors. Abuse this to decide when we actually need to at least try copying depth.
+        if(es3_functions.glGetError() == GL_INVALID_OPERATION) {
+            texture_blit_framebuffer(target, level, xoffset, yoffset, x, y, width, height, true);
+        }
     }
+
 }
