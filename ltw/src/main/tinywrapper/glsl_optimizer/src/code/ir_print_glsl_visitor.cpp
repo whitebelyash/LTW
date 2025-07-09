@@ -265,17 +265,26 @@ char * IR_TO_GLSL::Convert(
 
         // Search for internal GL variables and enable extensions based on them
         bool uses_buffer_sampler = false;
+        bool sampler2d_highp = false;
         foreach_in_list(ir_instruction, ir, instructions)
         {
             // Skip non-variables
             if(ir->ir_type != ir_type_variable) continue;
             auto* var = (ir_variable*)ir;
-            // Check for buffer texture samplers. Need to enable (and/or set precision) for them
+
             const char* type = var->type->name;
-            if(type != nullptr && (strstr(type, "samplerBuffer") != nullptr || strstr(type, "imageBuffer") != nullptr) && !uses_buffer_sampler) {
-                uses_buffer_sampler = true;
-                if(state->es_shader && state->language_version < 320) {
-                    res.append("#extension GL_EXT_texture_buffer : enable\n");
+            if(type != nullptr) {
+                // Check for buffer texture samplers. Need to enable (and/or set precision) for them
+                if(!uses_buffer_sampler && (strstr(type, "samplerBuffer") != nullptr || strstr(type, "imageBuffer") != nullptr)) {
+                    uses_buffer_sampler = true;
+                    if(state->es_shader && state->language_version < 320) {
+                        res.append("#extension GL_EXT_texture_buffer : enable\n");
+                    }
+                }
+                // Check if shampler2DShadow is used in this shader. If yes, we need to explicitly enable high
+                // precision for all 2D samplers, to make shadows on Mali look good.
+                if(!sampler2d_highp && (strstr(type, "sampler2DShadow") != nullptr)) {
+                    sampler2d_highp = true;
                 }
             }
             // Check for interpolation type. Need to enable the noperspective interpolation extension
@@ -296,12 +305,16 @@ char * IR_TO_GLSL::Convert(
         }
 
         if(print_precision) {
-            res.append("precision %s float;\nprecision %s int;\n", "highp", "highp");
+            const char* sampler2d_precision = "mediump";
+            if(sampler2d_highp) sampler2d_precision = "highp";
+            res.append("precision %1$s float;\n"
+                       "precision %1$s int;\n"
+                       "precision %2$s sampler2D;\n", "highp", sampler2d_precision);
             res.append("precision %1$s sampler3D;\n"
                        "precision %1$s samplerCubeShadow;\n"
-                       "precision %1$s sampler2DShadow;\n"
-                       "precision %1$s sampler2DArray;\n"
-                       "precision %1$s sampler2DArrayShadow;\n"
+                       "precision %2$s sampler2DShadow;\n"
+                       "precision %2$s sampler2DArray;\n"
+                       "precision %2$s sampler2DArrayShadow;\n"
                        "precision %1$s isampler2D;\n"
                        "precision %1$s isampler3D;\n"
                        "precision %1$s isamplerCube;\n"
@@ -309,7 +322,7 @@ char * IR_TO_GLSL::Convert(
                        "precision %1$s usampler2D;\n"
                        "precision %1$s usampler3D;\n"
                        "precision %1$s usamplerCube;\n"
-                       "precision %1$s usampler2DArray;\n", "lowp");
+                       "precision %1$s usampler2DArray;\n", "lowp", sampler2d_precision);
             if(uses_buffer_sampler) {
                 res.append("precision %1$s samplerBuffer;\n"
                            "precision %1$s isamplerBuffer;\n"
