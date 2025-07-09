@@ -305,7 +305,7 @@ char * IR_TO_GLSL::Convert(
         }
 
         if(print_precision) {
-            const char* sampler2d_precision = "mediump";
+            const char* sampler2d_precision = "lowp";
             if(sampler2d_highp) sampler2d_precision = "highp";
             res.append("precision %1$s float;\n"
                        "precision %1$s int;\n"
