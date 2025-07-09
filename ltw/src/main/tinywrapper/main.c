@@ -202,12 +202,6 @@ void glTexParameteri( 	GLenum target,
     if(!filter_params_integer(target, pname, param)) return;
     if(!filter_params_float(target, pname, (GLfloat)param)) return;
     swizzle_process_swizzle_param(target, pname, &param);
-    switch (pname) {
-        case GL_TEXTURE_MIN_FILTER:
-        case GL_TEXTURE_MAG_FILTER:
-            if(param == GL_LINEAR) param = GL_NEAREST;
-            break;
-    }
     es3_functions.glTexParameteri(target, pname, param);
 }
 
