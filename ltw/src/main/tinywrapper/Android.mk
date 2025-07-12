@@ -402,6 +402,7 @@ LOCAL_SRC_FILES := \
     vertexattrib.c \
     swizzle.c \
     license_notice.c \
+    env.c \
     vgpu_shaderconv/shaderconv.c \
     unordered_map/unordered_map.c \
     unordered_map/int_hash.c
