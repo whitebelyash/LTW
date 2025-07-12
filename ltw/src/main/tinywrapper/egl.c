@@ -6,6 +6,7 @@
 #include "egl.h"
 #include "unordered_map/int_hash.h"
 #include "string_utils.h"
+#include "env.h"
 #include <string.h>
 
 thread_local context_t *current_context;
@@ -110,7 +111,9 @@ void build_extension_string(context_t* context) {
     int length;
     init_extra_extensions(context, &length);
     if(context->buffer_storage) {
-        add_extra_extension(context, &length, "GL_ARB_buffer_storage");
+        if(!env_istrue("LTW_HIDE_BUFFER_STORAGE"))
+            add_extra_extension(context, &length, "GL_ARB_buffer_storage");
+        else printf("LTW: The buffer storage extension is hidden.\n");
     }
     if(context->buffer_texture_ext || context->es32) {
         add_extra_extension(context, &length, "ARB_texture_buffer_object");

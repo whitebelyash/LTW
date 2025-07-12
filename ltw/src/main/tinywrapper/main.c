@@ -18,6 +18,7 @@
 #include "main.h"
 #include "swizzle.h"
 #include "libraryinternal.h"
+#include "env.h"
 
 void glClearDepth(GLdouble depth) {
     if(!current_context) return;
@@ -297,8 +298,11 @@ const GLubyte* glGetString(GLenum name) {
     }
 }
 
+static bool debug = false;
+
 void glEnable(GLenum cap) {
-    if(!current_context || cap == GL_DEBUG_OUTPUT) return;
+    if(!current_context) return;
+    if(cap == GL_DEBUG_OUTPUT && !debug) return;
     es3_functions.glEnable(cap);
 }
 
@@ -459,16 +463,13 @@ void glTexBufferRangeARB(GLenum target, GLenum internalFormat, GLuint buffer, GL
     glTexBufferRange(target, internalFormat, buffer, offset, size);
 }
 
-static bool noerror = false;
+static bool noerror;
 
 __attribute((constructor)) void init_noerror() {
-    const char* noerror_env = getenv("LIBGL_NOERROR");
-    if(noerror_env == NULL) goto warning;
-    noerror = (*noerror_env) != '0';
-    if(!noerror) goto warning;
-    return;
-    warning:
-    printf("LTW will NOT ignore GL errors. This may break mods, consider yourself warned.\n");
+    noerror = env_istrue("LIBGL_NOERROR");
+    debug = env_istrue("LTW_DEBUG");
+    if(!noerror) printf("LTW will NOT ignore GL errors. This may break mods, consider yourself warned.\n");
+    if(debug) printf("GL_DEBUG will be enabled. Expect massive logs.\n");
 }
 
 GLenum glGetError() {
