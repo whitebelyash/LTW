@@ -261,13 +261,30 @@ void glRenderbufferStorage(	GLenum target,
     es3_functions.glRenderbufferStorage(target, internalformat, width, height);
 }
 
+static bool never_flush_buffers;
 
 void glBufferStorage(GLenum target,
                      GLsizeiptr size,
                      const void * data,
                      GLbitfield flags) {
     if(!current_context || !current_context->buffer_storage) return;
+    // Enable coherence to make sure the buffers are synced without flushing.
+    if((flags & GL_MAP_PERSISTENT_BIT) && never_flush_buffers) flags |= GL_MAP_COHERENT_BIT;
     es3_functions.glBufferStorageEXT(target, size, data, flags);
+}
+
+void *glMapBufferRange( 	GLenum target,
+                           GLintptr offset,
+                           GLsizeiptr length,
+                           GLbitfield access) {
+    if(never_flush_buffers) access &= ~GL_MAP_FLUSH_EXPLICIT_BIT;
+    return es3_functions.glMapBufferRange(target, offset, length, access);
+}
+
+void glFlushMappedBufferRange( 	GLenum target,
+                                  GLintptr offset,
+                                  GLsizeiptr length) {
+    if(!never_flush_buffers) es3_functions.glFlushMappedBufferRange(target, offset, length);
 }
 
 const GLubyte* glGetStringi(GLenum name, GLuint index) {
@@ -468,8 +485,10 @@ static bool noerror;
 __attribute((constructor)) void init_noerror() {
     noerror = env_istrue("LIBGL_NOERROR");
     debug = env_istrue("LTW_DEBUG");
+    never_flush_buffers = env_istrue("LTW_NEVER_FLUSH_BUFFERS");
     if(!noerror) printf("LTW will NOT ignore GL errors. This may break mods, consider yourself warned.\n");
-    if(debug) printf("GL_DEBUG will be enabled. Expect massive logs.\n");
+    if(debug) printf("LTW will allow GL_DEBUG_OUTPUT to be enabled. Expect massive logs.\n");
+    if(never_flush_buffers) printf("LTW will prevent all explicit buffer flushes.\n");
 }
 
 GLenum glGetError() {
