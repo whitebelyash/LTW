@@ -383,6 +383,8 @@ LOCAL_CFLAGS += -DHAVE_OPENGL
 LOCAL_CFLAGS += -DHAVE_OPENGL_ES_1
 LOCAL_CFLAGS += -DHAVE_OPENGL_ES_2
 LOCAL_CFLAGS += -fvisibility=hidden
+LOCAL_CFLAGS += -fno-stack-protector
+
 LOCAL_LDFLAGS := -ffunction-sections -fdata-sections
 include $(BUILD_STATIC_LIBRARY)
 
