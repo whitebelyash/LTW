@@ -262,6 +262,7 @@ void glRenderbufferStorage(	GLenum target,
 }
 
 static bool never_flush_buffers;
+static bool coherent_dynamic_storage;
 
 void glBufferStorage(GLenum target,
                      GLsizeiptr size,
@@ -269,7 +270,13 @@ void glBufferStorage(GLenum target,
                      GLbitfield flags) {
     if(!current_context || !current_context->buffer_storage) return;
     // Enable coherence to make sure the buffers are synced without flushing.
-    if(never_flush_buffers && ((flags & GL_MAP_PERSISTENT_BIT) != 0)) flags |= GL_MAP_COHERENT_BIT;
+    if(never_flush_buffers && ((flags & GL_MAP_PERSISTENT_BIT) != 0)) {
+        flags |= GL_MAP_COHERENT_BIT;
+    }
+    // Force dynamic storage buffers to be coherent (for working around driver bugs)
+    if(coherent_dynamic_storage && (flags & GL_DYNAMIC_STORAGE_BIT) != 0) {
+        flags |= (GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+    }
     es3_functions.glBufferStorageEXT(target, size, data, flags);
 }
 
@@ -486,7 +493,9 @@ __attribute((constructor)) void init_noerror() {
     noerror = env_istrue("LIBGL_NOERROR");
     debug = env_istrue("LTW_DEBUG");
     never_flush_buffers = env_istrue_d("LTW_NEVER_FLUSH_BUFFERS", true);
+    coherent_dynamic_storage = env_istrue_d("LTW_COHERENT_DYNAMIC_STORAGE", true);
     if(!noerror) printf("LTW will NOT ignore GL errors. This may break mods, consider yourself warned.\n");
+    if(coherent_dynamic_storage) printf("LTW will force dynamic storage buffers to be coherent.\n");
     if(debug) printf("LTW will allow GL_DEBUG_OUTPUT to be enabled. Expect massive logs.\n");
     if(never_flush_buffers) printf("LTW will prevent all explicit buffer flushes.\n");
 }
