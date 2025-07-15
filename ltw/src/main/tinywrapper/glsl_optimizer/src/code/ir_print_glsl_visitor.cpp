@@ -167,7 +167,7 @@ void print_layout(sbuffer& str, struct _mesa_glsl_parse_state* state, ast_type_q
         block                       \
     }
 #define LAYOUT_QUALIFIER(name, block) I_LAYOUT_QUALIFIER(qual->flags.q.name, block)
-#define LAYOUT_QUALIFIER_MASK(name, bit, block) I_LAYOUT_QUALIFIER(qual->flags.q.name & bit, block)
+#define LAYOUT_QUALIFIER_MASK(name, bit, block) I_LAYOUT_QUALIFIER(qual->flags.q.name & (bit), block)
     str.append("layout(");
     LAYOUT_QUALIFIER(prim_type,{
         str.append("%s", str_primtype(qual->prim_type, out));
@@ -199,20 +199,14 @@ void nan_check_warn() {
 
 void print_nan_check_funcs(sbuffer& str) {
     nan_check_warn();
-    const char* nan_check_func_float =
-            "float _ltw_removenan(float colorVal) {\n"
-            "   if(isnan(colorVal)) return float(0);\n"
-            "   else return colorVal;\n"
-            "}\n";
-    str.append("%s",nan_check_func_float);
-    const char* nan_check_func_vector =
+    const char* nan_check_func =
             "%1$s _ltw_removenan(%1$s colorVal) {\n"
-            "   if(any(isnan(colorVal))) return %1$s(%2$s);\n"
-            "   else return colorVal;\n"
+            "   return mix(colorVal, %1$s(%2$s), isnan(colorVal));\n"
             "}\n";
-    str.append(nan_check_func_vector, "vec2", "0,0");
-    str.append(nan_check_func_vector, "vec3", "0,0,0");
-    str.append(nan_check_func_vector, "vec4", "0,0,0,1");
+    str.append(nan_check_func, "float", "0.0");
+    str.append(nan_check_func, "vec2", "0.0,0.0");
+    str.append(nan_check_func, "vec3", "0.0,0.0,0.0");
+    str.append(nan_check_func, "vec4", "0.0,0.0,0.0,1.0");
 }
 
 // DANGER, the function allocates a new string
