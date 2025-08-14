@@ -4,6 +4,8 @@
 
 #include "string_utils.h"
 
+#pragma GCC visibility push(hidden)
+
 const char* AllSeparators = " \t\n\r.,;()[]{}-<>+*/%&\\\"'^$=!:?";
 
 char* gl4es_resize_if_needed(char* pBuffer, int *size, int addsize);
@@ -300,3 +302,4 @@ char* gl4es_inplace_replace_simple(char* pBuffer, int* size, const char* S, cons
     
     return pBuffer;
 }
+#pragma GCC visibility pop(hidden)

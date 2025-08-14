@@ -1,6 +1,6 @@
 /**
  * Created by: SerpentSpirale
- * Copyright (c) 2025 SerpentSpirale, artDev, PojavLauncherTeam, Digital Genesis LLC.
+ * Copyright (c) 2025 SerpentSpirale, artDev, CADIndie.
  * For use under LGPL-3.0
  */
 #include <math.h>

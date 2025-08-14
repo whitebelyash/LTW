@@ -8,6 +8,7 @@
 #include "../util/macros.h"
 #include "../util/hash_table.h"
 #include "../util/u_string.h"
+#include "../compiler/glsl/ast.h"
 
 const char* const precision[] = { "", "highp ", "mediump ", "lowp " };
 
@@ -125,6 +126,89 @@ void IR_TO_GLSL::print_type_post(sbuffer& str, const glsl_type* t, bool arraySiz
 	}
 }
 
+const char* str_primtype(GLenum type, bool out) {
+    if(!out) switch (type) {
+        case GL_POINTS: return "points";
+        case GL_LINE_STRIP:
+        case GL_LINES: return "lines";
+        case GL_LINE_STRIP_ADJACENCY:
+        case GL_LINES_ADJACENCY: return "lines_adjacency";
+        case GL_TRIANGLE_STRIP:
+        case GL_TRIANGLE_FAN:
+        case GL_TRIANGLES: return "triangles";
+        case GL_TRIANGLE_STRIP_ADJACENCY:
+        case GL_TRIANGLES_ADJACENCY: return "triangles_adjacency";
+        default:
+            printf("Unhandled geom shader input primtype: %x\n", type);
+            return "unknown";
+    }
+    else switch(type) {
+        case GL_POINTS: return "points";
+        case GL_LINE_STRIP: return "line_strip";
+        case GL_TRIANGLE_STRIP: return "triangle_strip";
+        default:
+            printf("Unhandled geom shader output primtype: %x\n", type);
+            return "unknown";
+    }
+}
+
+bool should_print_layout(const ast_type_qualifier* qual) {
+    return qual->flags.q.prim_type ||
+            qual->flags.q.max_vertices ||
+            qual->flags.q.local_size;
+}
+
+void print_layout(sbuffer& str, struct _mesa_glsl_parse_state* state, ast_type_qualifier* qual, bool out) {
+    bool first = true;
+#define I_LAYOUT_QUALIFIER(cmp_op, block) \
+    if(cmp_op) {        \
+        if(!first) str.append(","); \
+        else first = false;         \
+        block                       \
+    }
+#define LAYOUT_QUALIFIER(name, block) I_LAYOUT_QUALIFIER(qual->flags.q.name, block)
+#define LAYOUT_QUALIFIER_MASK(name, bit, block) I_LAYOUT_QUALIFIER(qual->flags.q.name & (bit), block)
+    str.append("layout(");
+    LAYOUT_QUALIFIER(prim_type,{
+        str.append("%s", str_primtype(qual->prim_type, out));
+    })
+    LAYOUT_QUALIFIER(max_vertices,{
+        unsigned qual_max_vertices = !0;
+        qual->max_vertices->process_qualifier_constant(state, "max_vertices",
+                                   &qual_max_vertices, true);
+        str.append("max_vertices=%u", qual_max_vertices);
+    })
+    LAYOUT_QUALIFIER_MASK(local_size, 1 << 0, {
+        str.append("local_size_x=", state->cs_input_local_size[0]);
+    })
+    LAYOUT_QUALIFIER_MASK(local_size, 1 << 1, {
+        str.append("local_size_y=", state->cs_input_local_size[1]);
+    })
+    LAYOUT_QUALIFIER_MASK(local_size, 1 << 2, {
+        str.append("local_size_z=", state->cs_input_local_size[2]);
+    })
+    str.append(") ");
+}
+
+void nan_check_warn() {
+    static bool warned = false;
+    if(warned) return;
+    printf("LTW shader optimizer will emit NaN checks for fragment outputs. This may lead to loss of performance.\n");
+    warned = true;
+}
+
+void print_nan_check_funcs(sbuffer& str) {
+    nan_check_warn();
+    const char* nan_check_func =
+            "%1$s _ltw_removenan(%1$s colorVal) {\n"
+            "   return mix(colorVal, %1$s(%2$s), isnan(colorVal));\n"
+            "}\n";
+    str.append(nan_check_func, "float", "0.0");
+    str.append(nan_check_func, "vec2", "0.0,0.0");
+    str.append(nan_check_func, "vec3", "0.0,0.0,0.0");
+    str.append(nan_check_func, "vec4", "0.0,0.0,0.0,1.0");
+}
+
 // DANGER, the function allocates a new string
 // DO NOT FORGET TO FREE IT
 char * IR_TO_GLSL::Convert(
@@ -132,6 +216,7 @@ char * IR_TO_GLSL::Convert(
 	struct _mesa_glsl_parse_state* state)
 {
 	sbuffer res;
+    bool shader_nan_check = false;
 
 	if (state)
 	{
@@ -173,11 +258,35 @@ char * IR_TO_GLSL::Convert(
 			res.append("#extension GL_EXT_texture_array : enable\n");
 
         // Search for internal GL variables and enable extensions based on them
+        bool uses_buffer_sampler = false;
+        bool sampler2d_highp = false;
         foreach_in_list(ir_instruction, ir, instructions)
         {
             // Skip non-variables
             if(ir->ir_type != ir_type_variable) continue;
             auto* var = (ir_variable*)ir;
+
+            const char* type = var->type->name;
+            if(type != nullptr) {
+                // Check for buffer texture samplers. Need to enable (and/or set precision) for them
+                if(!uses_buffer_sampler && (strstr(type, "samplerBuffer") != nullptr || strstr(type, "imageBuffer") != nullptr)) {
+                    uses_buffer_sampler = true;
+                    if(state->es_shader && state->language_version < 320) {
+                        res.append("#extension GL_EXT_texture_buffer : enable\n");
+                    }
+                }
+                // Check if shampler2DShadow is used in this shader. If yes, we need to explicitly enable high
+                // precision for all 2D samplers, to make shadows on Mali look good.
+                if(!sampler2d_highp && (strstr(type, "sampler2DShadow") != nullptr)) {
+                    sampler2d_highp = true;
+                }
+            }
+            // Check for interpolation type. Need to enable the noperspective interpolation extension
+            // if used.
+            if(var->data.interpolation == glsl_interp_mode::INTERP_MODE_NOPERSPECTIVE && !state->NV_shader_noperspective_interpolation_enable) {
+                state->NV_shader_noperspective_interpolation_enable = true;
+                res.append("#extension GL_NV_shader_noperspective_interpolation : enable\n");
+            }
             // Skip non-internal variables
             if(strstr(var->name, "gl_") != var->name) continue;
             const char* name = var->name;
@@ -190,12 +299,16 @@ char * IR_TO_GLSL::Convert(
         }
 
         if(print_precision) {
-            res.append("precision %s float;\nprecision %s int;\n", "highp", "highp");
+            const char* sampler2d_precision = "lowp";
+            if(sampler2d_highp) sampler2d_precision = "highp";
+            res.append("precision %1$s float;\n"
+                       "precision %1$s int;\n"
+                       "precision %2$s sampler2D;\n", "highp", sampler2d_precision);
             res.append("precision %1$s sampler3D;\n"
                        "precision %1$s samplerCubeShadow;\n"
-                       "precision %1$s sampler2DShadow;\n"
-                       "precision %1$s sampler2DArray;\n"
-                       "precision %1$s sampler2DArrayShadow;\n"
+                       "precision %2$s sampler2DShadow;\n"
+                       "precision %2$s sampler2DArray;\n"
+                       "precision %2$s sampler2DArrayShadow;\n"
                        "precision %1$s isampler2D;\n"
                        "precision %1$s isampler3D;\n"
                        "precision %1$s isamplerCube;\n"
@@ -203,7 +316,15 @@ char * IR_TO_GLSL::Convert(
                        "precision %1$s usampler2D;\n"
                        "precision %1$s usampler3D;\n"
                        "precision %1$s usamplerCube;\n"
-                       "precision %1$s usampler2DArray;\n", "lowp");
+                       "precision %1$s usampler2DArray;\n", "lowp", sampler2d_precision);
+            if(uses_buffer_sampler) {
+                res.append("precision %1$s samplerBuffer;\n"
+                           "precision %1$s isamplerBuffer;\n"
+                           "precision %1$s usamplerBuffer;\n"
+                           "precision %1$s imageBuffer;\n"
+                           "precision %1$s iimageBuffer;\n"
+                           "precision %1$s uimageBuffer;\n", "lowp");
+            }
         }
 
 		for (unsigned i = 0; i < state->num_user_structures; i++)
@@ -219,9 +340,24 @@ char * IR_TO_GLSL::Convert(
 			}
 			res.append("};\n");
 		}
+        if(should_print_layout(state->in_qualifier)) {
+            print_layout(res, state, state->in_qualifier, false);
+            res.append("in;\n");
+        }
+        if(should_print_layout(state->out_qualifier)) {
+            print_layout(res, state, state->out_qualifier, true);
+            res.append("out;\n");
+        }
+        const char* nan_check_env = getenv("LTW_SHADERCONV_CHECKNAN");
+        bool emit_nan_check = nan_check_env != nullptr && *nan_check_env == '1';
+        if(emit_nan_check && state->stage == MESA_SHADER_FRAGMENT) {
+            print_nan_check_funcs(res);
+            shader_nan_check = true;
+        }
 	}
 
 	global_print_tracker global;
+    global.enable_nan_check = shader_nan_check;
 	int uses_texlod_impl = 0;
 	int uses_texlodproj_impl = 0;
 	loop_state* ls = analyze_loop_variables(instructions);
@@ -262,9 +398,6 @@ char * IR_TO_GLSL::Convert(
     // YOUR PROGRAM HAS TO FREE IT !
 	return res.c_str_take_ownership();
 }
-
-const char* IR_TO_GLSL::processed_uniform_blocks[64] = { 0 };
-int   IR_TO_GLSL::num_uniform_blocks = 0;
 
 IR_TO_GLSL::IR_TO_GLSL(
 	sbuffer& str,
@@ -434,7 +567,11 @@ IR_TO_GLSL::visit(ir_variable* ir)
 		const int binding_base = (this->state->stage == MESA_SHADER_VERTEX ? (int)VERT_ATTRIB_GENERIC0 : (int)FRAG_RESULT_DATA0);
 		const int location = ir->data.location - binding_base;
 		snprintf(loc, sizeof(loc), "layout(location=%d) ", location);
-	}
+	} else if(!ir->data.explicit_location && ir->data.mode == ir_var_shader_out && this->state->stage == MESA_SHADER_FRAGMENT) {
+        generated_source.append("/* LTW INSERT LOCATION ");
+        print_var_name(ir);
+        generated_source.append(" LTW */");
+    }
 	else if (ir->data.location != -1)
 	{
 		snprintf(loc, sizeof(loc), "location=%i ", ir->data.location);
@@ -691,10 +828,10 @@ const char* const operator_glsl_strs[] = {
    "double", //"u2d",
    "bool",// "d2b",
    "f162b",
-   "bitcast_i2f",
-   "bitcast_f2i",
-   "bitcast_u2f",
-   "bitcast_f2u",
+   "intBitsToFloat",
+   "floatBitsToInt",
+   "uintBitsToFloat",
+   "floatBitsToUint",
    "bitcast_u642d",
    "bitcast_i642d",
    "bitcast_d2u64",
@@ -1489,6 +1626,11 @@ IR_TO_GLSL::emit_assignment_part(ir_dereference* lhs, ir_rvalue* rhs, unsigned w
 
 	generated_source.append(" = ");
 
+    bool rhs_nan_check = global->enable_nan_check &&
+            lhs->variable_referenced()->data.mode == ir_var_shader_out &&
+            lhsType->is_float();
+    if(rhs_nan_check) generated_source.append("_ltw_removenan(");
+
 	bool typeMismatch = !dstIndex && (lhsType != rhsType);
 	const bool addSwizzle = hasWriteMask && typeMismatch;
 	if (typeMismatch)
@@ -1506,6 +1648,8 @@ IR_TO_GLSL::emit_assignment_part(ir_dereference* lhs, ir_rvalue* rhs, unsigned w
 		if (addSwizzle)
 			generated_source.append(".%s", mask);
 	}
+
+    if(rhs_nan_check) generated_source.append(")");
 }
 
 // Try to print (X = X + const) as (X += const), mostly to satisfy
@@ -1705,7 +1849,7 @@ void IR_TO_GLSL::print_float_checked(sbuffer& str, float f) {
         char float_dest[5];
         snprintf(float_dest, 5, "%f", f);
         valid_float = strstr(float_dest, "nan") == nullptr && strstr(float_dest, "inf") == nullptr;
-	if (!valid_float) 
+	if (!valid_float)
 		{
 		// Non-printable float. If we have bit conversions, we're fine. otherwise do hand-wavey things in print_float().
 		if ((state->es_shader && (state->language_version >= 300))
@@ -2120,7 +2264,7 @@ IR_TO_GLSL::visit(ir_loop_jump* ir)
 void
 IR_TO_GLSL::visit(ir_emit_vertex* ir)
 {
-	generated_source.append("emit-vertex-TODO");
+	generated_source.append("EmitVertex();");
 	ir->stream->accept(this);
 	generated_source.append("\n");
 }
@@ -2128,7 +2272,7 @@ IR_TO_GLSL::visit(ir_emit_vertex* ir)
 void
 IR_TO_GLSL::visit(ir_end_primitive* ir)
 {
-	generated_source.append("end-primitive-TODO");
+	generated_source.append("EndPrimitive();");
 	ir->stream->accept(this);
 	generated_source.append("\n");
 }
@@ -2136,24 +2280,24 @@ IR_TO_GLSL::visit(ir_end_primitive* ir)
 void
 IR_TO_GLSL::visit(ir_barrier*)
 {
-	generated_source.append("barrier-TODO\n");
+	generated_source.append("barrier();\n");
 }
 
 void IR_TO_GLSL::visit_uniform_block(ir_variable *ir) {
 	const glsl_type* itype = ir->get_interface_type();
 
-	for ( int i = 0; i < num_uniform_blocks; i++ )
+	for ( int i = 0; i < global->num_uniform_blocks; i++ )
 	{
-		if ( itype->name == processed_uniform_blocks[i] )
+		if ( itype->name == global->processed_uniform_blocks[i] )
 		{
 			skipped_this_ir = true;
 			return;
 		}
 	}
 
-	assert( num_uniform_blocks < sizeof( processed_uniform_blocks ) / sizeof( processed_uniform_blocks[0] ) );
+	assert( global->num_uniform_blocks < sizeof( global->processed_uniform_blocks ) / sizeof( global->processed_uniform_blocks[0] ) );
 
-	processed_uniform_blocks[num_uniform_blocks++] = itype->name;
+    global->processed_uniform_blocks[global->num_uniform_blocks++] = itype->name;
 
 	const char* packing = nullptr;
 

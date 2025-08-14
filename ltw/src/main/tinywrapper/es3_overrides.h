@@ -1,6 +1,6 @@
 /**
  * Created by: artDev
- * Copyright (c) 2025 artDev, SerpentSpirale, PojavLauncherTeam, Digital Genesis LLC.
+ * Copyright (c) 2025 artDev, SerpentSpirale, CADIndie.
  * For use under LGPL-3.0
  */
 void glClearDepth(double depth);
@@ -40,6 +40,11 @@ GLESOVERRIDE(glGetTexLevelParameteriv)
 GLESOVERRIDE(glGetTexLevelParameterfv)
 GLESOVERRIDE(glCreateShader)
 GLESOVERRIDE(glDeleteShader)
+GLESOVERRIDE(glCreateProgram)
+GLESOVERRIDE(glDeleteProgram)
+GLESOVERRIDE(glLinkProgram)
+GLESOVERRIDE(glAttachShader)
+GLESOVERRIDE(glGetShaderiv)
 GLESOVERRIDE(glShaderSource)
 GLESOVERRIDE(glTexImage2D)
 GLESOVERRIDE(glDebugMessageControl)
@@ -61,6 +66,7 @@ GLESOVERRIDE(glFramebufferTextureLayer)
 GLESOVERRIDE(glFramebufferRenderbuffer)
 GLESOVERRIDE(glGetFramebufferAttachmentParameteriv)
 GLESOVERRIDE(glDrawBuffers)
+GLESOVERRIDE(glDrawBuffer)
 GLESOVERRIDE(glClearBufferiv)
 GLESOVERRIDE(glClearBufferuiv)
 GLESOVERRIDE(glClearBufferfv)
@@ -122,3 +128,7 @@ GLESOVERRIDE(glTexParameterIiv)
 GLESOVERRIDE(glTexParameterIuiv)
 GLESOVERRIDE(glRenderbufferStorage)
 GLESOVERRIDE(glGetError)
+GLESOVERRIDE(glTexBuffer)
+GLESOVERRIDE(glTexBufferRange)
+GLESOVERRIDE(glMapBufferRange)
+GLESOVERRIDE(glFlushMappedBufferRange)

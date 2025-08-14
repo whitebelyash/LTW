@@ -1,6 +1,6 @@
 /**
  * Created by: artDev
- * Copyright (c) 2025 artDev, SerpentSpirale, PojavLauncherTeam, Digital Genesis LLC.
+ * Copyright (c) 2025 artDev, SerpentSpirale, CADIndie.
  * For use under LGPL-3.0
  */
 #include <GLES3/gl31.h>
@@ -18,8 +18,8 @@ typedef struct {
 
 void basevertex_init(context_t* context) {
     basevertex_renderer_t *renderer = &context->basevertex;
-    if(context->es32) {
-        printf("LTW: BaseVertex render calls will use OpenGL ES 3.2 variants\n");
+    if(context->drawelementsbasevertex != NULL) {
+        printf("LTW: BaseVertex render calls will use the host driver implementation\n");
         return;
     }
     if(!context->es31) {
@@ -50,8 +50,8 @@ static void restore_state(GLuint element_buffer) {
 
 void glDrawElementsBaseVertex(GLenum mode, GLsizei count, GLenum type, const void *indices, GLint basevertex) {
     if(!current_context) return;
-    if(current_context->es32) {
-        es3_functions.glDrawElementsBaseVertex(mode, count, type, indices, basevertex);
+    if(current_context->drawelementsbasevertex != NULL) {
+        current_context->drawelementsbasevertex(mode, count, type, indices, basevertex);
         return;
     }
     basevertex_renderer_t *renderer = &current_context->basevertex;
@@ -89,9 +89,9 @@ void glMultiDrawElementsBaseVertex(GLenum mode,
                                    GLsizei drawcount,
                                    const GLint *basevertex) {
     if(!current_context) return;
-    if(current_context->es32) {
+    if(current_context->drawelementsbasevertex != NULL) {
         for(GLsizei i = 0; i < drawcount; i++) {
-            es3_functions.glDrawElementsBaseVertex(mode, count[i], type, indices[i], basevertex[i]);
+            current_context->drawelementsbasevertex(mode, count[i], type, indices[i], basevertex[i]);
         }
         return;
     }
@@ -121,7 +121,9 @@ void glMultiDrawElementsBaseVertex(GLenum mode,
     }
     es3_functions.glBindBuffer(GL_DRAW_INDIRECT_BUFFER, renderer->indirectRenderBuffer);
     es3_functions.glBufferData(GL_DRAW_INDIRECT_BUFFER, (long)sizeof(indirect_pass_t) * drawcount, indirect_passes, GL_STREAM_DRAW);
-    for(GLsizei i = 0; i < drawcount; i++) {
+    if(current_context->multidraw_indirect) {
+        es3_functions.glMultiDrawElementsIndirectEXT(mode, type, 0, drawcount, 0);
+    } else for(GLsizei i = 0; i < drawcount; i++) {
         es3_functions.glDrawElementsIndirect(mode, type, (void*)(sizeof(indirect_pass_t) * i));
     }
     restore_state(elementbuffer);

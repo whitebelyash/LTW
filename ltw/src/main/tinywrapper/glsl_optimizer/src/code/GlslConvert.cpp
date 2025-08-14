@@ -388,7 +388,9 @@ void GlslConvert::InitContext(struct gl_context* ctx, ApiTarget api, int vGlslVe
 	ctx->Const.Program[MESA_SHADER_COMPUTE].MaxAtomicBuffers = 8;
 	ctx->Const.Program[MESA_SHADER_COMPUTE].MaxAtomicCounters = 8;
 	ctx->Const.Program[MESA_SHADER_COMPUTE].MaxImageUniforms = 8;
-	ctx->Const.Program[MESA_SHADER_COMPUTE].MaxUniformBlocks = 12;
+	ctx->Const.Program[MESA_SHADER_COMPUTE].MaxUniformBlocks = 64;
+    ctx->Const.Program[MESA_SHADER_FRAGMENT].MaxUniformBlocks = 64;
+    ctx->Const.Program[MESA_SHADER_VERTEX].MaxUniformBlocks = 64;
 
 	switch (ctx->Const.GLSLVersion) {
 	case 100:
@@ -505,7 +507,6 @@ void GlslConvert::InitContext(struct gl_context* ctx, ApiTarget api, int vGlslVe
 		ctx->Const.Program[MESA_SHADER_VERTEX].MaxCombinedUniformComponents = 1024;
 		ctx->Const.Program[MESA_SHADER_VERTEX].MaxInputComponents = 0; /* not used */
 		ctx->Const.Program[MESA_SHADER_VERTEX].MaxOutputComponents = 64;
-		ctx->Const.Program[MESA_SHADER_VERTEX].MaxUniformBlocks = 4;
 
 		ctx->Const.Program[MESA_SHADER_GEOMETRY].MaxTextureImageUnits = 16;
 		ctx->Const.Program[MESA_SHADER_GEOMETRY].MaxUniformComponents = 1024;
@@ -513,7 +514,6 @@ void GlslConvert::InitContext(struct gl_context* ctx, ApiTarget api, int vGlslVe
 		ctx->Const.Program[MESA_SHADER_GEOMETRY].MaxInputComponents =
 			ctx->Const.Program[MESA_SHADER_VERTEX].MaxOutputComponents;
 		ctx->Const.Program[MESA_SHADER_GEOMETRY].MaxOutputComponents = 128;
-		ctx->Const.Program[MESA_SHADER_GEOMETRY].MaxUniformBlocks = 4;
 
 		ctx->Const.Program[MESA_SHADER_FRAGMENT].MaxTextureImageUnits = 16;
 		ctx->Const.Program[MESA_SHADER_FRAGMENT].MaxUniformComponents = 1024;
@@ -521,7 +521,6 @@ void GlslConvert::InitContext(struct gl_context* ctx, ApiTarget api, int vGlslVe
 		ctx->Const.Program[MESA_SHADER_FRAGMENT].MaxInputComponents =
 			ctx->Const.Program[MESA_SHADER_GEOMETRY].MaxOutputComponents;
 		ctx->Const.Program[MESA_SHADER_FRAGMENT].MaxOutputComponents = 0; /* not used */
-		ctx->Const.Program[MESA_SHADER_FRAGMENT].MaxUniformBlocks = 4;
 
 		ctx->Const.MaxCombinedTextureImageUnits =
 			ctx->Const.Program[MESA_SHADER_VERTEX].MaxTextureImageUnits

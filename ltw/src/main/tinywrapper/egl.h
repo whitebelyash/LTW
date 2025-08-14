@@ -1,6 +1,6 @@
 /**
  * Created by: artDev
- * Copyright (c) 2025 artDev, SerpentSpirale, PojavLauncherTeam, Digital Genesis LLC.
+ * Copyright (c) 2025 artDev, SerpentSpirale, CADIndie.
  * For use under LGPL-3.0
  */
 
@@ -65,7 +65,8 @@ typedef struct {
 typedef struct {
     EGLContext phys_context;
     bool context_rdy;
-    bool es31, es32, buffer_storage;
+    bool es31, es32, buffer_storage, buffer_texture_ext, multidraw_indirect;
+    PFNGLDRAWELEMENTSBASEVERTEXPROC drawelementsbasevertex;
     GLint shader_version;
     basevertex_renderer_t basevertex;
     GLuint multidraw_element_buffer;

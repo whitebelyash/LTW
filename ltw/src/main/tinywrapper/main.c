@@ -1,6 +1,6 @@
 /**
  * Created by: artDev, DuyKhanhTran
- * Copyright (c) 2025 artDev, SerpentSpirale, PojavLauncherTeam, Digital Genesis LLC.
+ * Copyright (c) 2025 artDev, SerpentSpirale, CADIndie.
  * For use under LGPL-3.0
  */
 #include <stdio.h>
@@ -18,6 +18,7 @@
 #include "main.h"
 #include "swizzle.h"
 #include "libraryinternal.h"
+#include "env.h"
 
 void glClearDepth(GLdouble depth) {
     if(!current_context) return;
@@ -166,7 +167,7 @@ void glTexImage2D(GLenum target, GLint level, GLint internalformat, GLsizei widt
         current_context->proxy_height = ((height<<level)>current_context->maxTextureSize)?0:height;
         current_context->proxy_intformat = internalformat;
     } else {
-        swizzle_process_upload(target, &format, &type);
+        if(data != NULL) swizzle_process_upload(target, &format, &type);
         pick_internalformat(&internalformat, &type, &format, &data);
         es3_functions.glTexImage2D(target, level, internalformat, width, height, border, format, type, data);
     }
@@ -202,12 +203,6 @@ void glTexParameteri( 	GLenum target,
     if(!filter_params_integer(target, pname, param)) return;
     if(!filter_params_float(target, pname, (GLfloat)param)) return;
     swizzle_process_swizzle_param(target, pname, &param);
-    switch (pname) {
-        case GL_TEXTURE_MIN_FILTER:
-        case GL_TEXTURE_MAG_FILTER:
-            if(param == GL_LINEAR) param = GL_NEAREST;
-            break;
-    }
     es3_functions.glTexParameteri(target, pname, param);
 }
 
@@ -266,13 +261,37 @@ void glRenderbufferStorage(	GLenum target,
     es3_functions.glRenderbufferStorage(target, internalformat, width, height);
 }
 
+static bool never_flush_buffers;
+static bool coherent_dynamic_storage;
 
 void glBufferStorage(GLenum target,
                      GLsizeiptr size,
                      const void * data,
                      GLbitfield flags) {
     if(!current_context || !current_context->buffer_storage) return;
+    // Enable coherence to make sure the buffers are synced without flushing.
+    if(never_flush_buffers && ((flags & GL_MAP_PERSISTENT_BIT) != 0)) {
+        flags |= GL_MAP_COHERENT_BIT;
+    }
+    // Force dynamic storage buffers to be coherent (for working around driver bugs)
+    if(coherent_dynamic_storage && (flags & GL_DYNAMIC_STORAGE_BIT) != 0) {
+        flags |= (GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT);
+    }
     es3_functions.glBufferStorageEXT(target, size, data, flags);
+}
+
+void *glMapBufferRange( 	GLenum target,
+                           GLintptr offset,
+                           GLsizeiptr length,
+                           GLbitfield access) {
+    if(never_flush_buffers) access &= ~GL_MAP_FLUSH_EXPLICIT_BIT;
+    return es3_functions.glMapBufferRange(target, offset, length, access);
+}
+
+void glFlushMappedBufferRange( 	GLenum target,
+                                  GLintptr offset,
+                                  GLsizeiptr length) {
+    if(!never_flush_buffers) es3_functions.glFlushMappedBufferRange(target, offset, length);
 }
 
 const GLubyte* glGetStringi(GLenum name, GLuint index) {
@@ -294,7 +313,7 @@ const GLubyte* glGetString(GLenum name) {
         case GL_SHADING_LANGUAGE_VERSION:
             return (const GLubyte*)"4.60 LTW";
         case GL_VENDOR:
-            return (const GLubyte*)"PojavLauncherTeam & QuestCraft Developers";
+            return (const GLubyte*)"artDev, SerpentSpirale, CADIndie";
         case GL_EXTENSIONS:
             if(current_context->extensions_string != NULL) return (const GLubyte*)current_context->extensions_string;
             return (const GLubyte*)es3_functions.glGetString(GL_EXTENSIONS);
@@ -303,8 +322,11 @@ const GLubyte* glGetString(GLenum name) {
     }
 }
 
+static bool debug = false;
+
 void glEnable(GLenum cap) {
-    if(!current_context || cap == GL_DEBUG_OUTPUT) return;
+    if(!current_context) return;
+    if(cap == GL_DEBUG_OUTPUT && !debug) return;
     es3_functions.glEnable(cap);
 }
 
@@ -435,15 +457,47 @@ void glDeleteTextures(GLsizei n, const GLuint *textures) {
     }
 }
 
-static bool noerror = false;
+static bool buf_tex_trigger = false;
+
+void glTexBuffer(GLenum target, GLenum internalFormat, GLuint buffer) {
+    if(!current_context) return;
+    if(current_context->es32) es3_functions.glTexBuffer(target, internalFormat, buffer);
+    else if(current_context->buffer_texture_ext) es3_functions.glTexBufferEXT(target, internalFormat, buffer);
+    else if(!buf_tex_trigger) {
+        buf_tex_trigger = true;
+        printf("LTW: Buffer textures aren't supported on your device\n");
+    }
+}
+
+void glTexBufferARB(GLenum target, GLenum internalFormat, GLuint buffer) {
+    glTexBuffer(target, internalFormat, buffer);
+}
+
+void glTexBufferRange(GLenum target, GLenum internalFormat, GLuint buffer, GLintptr offset, GLsizeiptr size) {
+    if(!current_context) return;
+    if(current_context->es32) es3_functions.glTexBufferRange(target, internalFormat, buffer, offset, size);
+    else if(current_context->buffer_texture_ext) es3_functions.glTexBufferRangeEXT(target, internalFormat, buffer, offset, size);
+    else if(!buf_tex_trigger) {
+        buf_tex_trigger = true;
+        printf("LTW: Buffer textures aren't supported on your device\n");
+    }
+}
+
+void glTexBufferRangeARB(GLenum target, GLenum internalFormat, GLuint buffer, GLintptr offset, GLsizeiptr size) {
+    glTexBufferRange(target, internalFormat, buffer, offset, size);
+}
+
+static bool noerror;
 
 __attribute((constructor)) void init_noerror() {
-    const char* noerror_env = getenv("LIBGL_NOERROR");
-    if(noerror_env == NULL) return;
-    noerror = (*noerror_env) != '0';
-    if(!noerror) {
-        printf("LTW will NOT ignore GL errors. This may break mods, consider yourself warned.\n");
-    }
+    noerror = env_istrue("LIBGL_NOERROR");
+    debug = env_istrue("LTW_DEBUG");
+    never_flush_buffers = env_istrue_d("LTW_NEVER_FLUSH_BUFFERS", true);
+    coherent_dynamic_storage = env_istrue_d("LTW_COHERENT_DYNAMIC_STORAGE", true);
+    if(!noerror) printf("LTW will NOT ignore GL errors. This may break mods, consider yourself warned.\n");
+    if(coherent_dynamic_storage) printf("LTW will force dynamic storage buffers to be coherent.\n");
+    if(debug) printf("LTW will allow GL_DEBUG_OUTPUT to be enabled. Expect massive logs.\n");
+    if(never_flush_buffers) printf("LTW will prevent all explicit buffer flushes.\n");
 }
 
 GLenum glGetError() {

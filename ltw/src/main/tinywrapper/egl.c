@@ -1,11 +1,12 @@
 /**
  * Created by: artDev
- * Copyright (c) 2025 artDev, SerpentSpirale, PojavLauncherTeam, Digital Genesis LLC.
+ * Copyright (c) 2025 artDev, SerpentSpirale, CADIndie.
  * For use under LGPL-3.0
  */
 #include "egl.h"
 #include "unordered_map/int_hash.h"
 #include "string_utils.h"
+#include "env.h"
 #include <string.h>
 
 thread_local context_t *current_context;
@@ -110,7 +111,12 @@ void build_extension_string(context_t* context) {
     int length;
     init_extra_extensions(context, &length);
     if(context->buffer_storage) {
-        add_extra_extension(context, &length, "GL_ARB_buffer_storage");
+        if(!env_istrue("LTW_HIDE_BUFFER_STORAGE"))
+            add_extra_extension(context, &length, "GL_ARB_buffer_storage");
+        else printf("LTW: The buffer storage extension is hidden.\n");
+    }
+    if(context->buffer_texture_ext || context->es32) {
+        add_extra_extension(context, &length, "ARB_texture_buffer_object");
     }
     // More extensions are possible, but will need way more wraps and tracking.
     fin_extra_extensions(context, length);
@@ -139,6 +145,15 @@ static void find_esversion(context_t* context) {
 
     const char* extensions = (const char*) es3_functions.glGetString(GL_EXTENSIONS);
     if(strstr(extensions, "GL_EXT_buffer_storage")) context->buffer_storage = true;
+    if(strstr(extensions, "GL_EXT_texture_buffer")) context->buffer_texture_ext = true;
+    if(strstr(extensions, "GL_EXT_multi_draw_indirect")) context->multidraw_indirect = true;
+
+    bool basevertex_oes = strstr(extensions, "GL_OES_draw_elements_base_vertex");
+    bool basevertex_ext = strstr(extensions, "GL_EXT_draw_elements_base_vertex");
+    if(context->es32) context->drawelementsbasevertex = es3_functions.glDrawElementsBaseVertex;
+    else if(basevertex_oes) context->drawelementsbasevertex = es3_functions.glDrawElementsBaseVertexOES;
+    else if(basevertex_ext) context->drawelementsbasevertex = es3_functions.glDrawElementsBaseVertexEXT;
+    else context->drawelementsbasevertex = NULL;
 
     build_extension_string(context);
 

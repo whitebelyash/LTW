@@ -1,6 +1,6 @@
 /**
  * Created by: artDev
- * Copyright (c) 2025 artDev, SerpentSpirale, PojavLauncherTeam, Digital Genesis LLC.
+ * Copyright (c) 2025 artDev, SerpentSpirale, CADIndie.
  * For use under LGPL-3.0
  */
 
@@ -67,6 +67,9 @@ INTERNAL void swizzle_process_upload(GLenum target, GLenum* format, GLenum* type
     }
     if((*type) == 0x8035) {
         apply_goofy_order = true;
+        *type = GL_UNSIGNED_BYTE;
+    }
+    if((*type) == 0x8367) {
         *type = GL_UNSIGNED_BYTE;
     }
     if(apply_goofy_order != track->goofy_byte_order || apply_upload_bgra != track->upload_bgra) {

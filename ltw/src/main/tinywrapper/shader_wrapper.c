@@ -1,6 +1,6 @@
 /**
  * Created by: artDev
- * Copyright (c) 2025 artDev, SerpentSpirale, PojavLauncherTeam, Digital Genesis LLC.
+ * Copyright (c) 2025 artDev, SerpentSpirale, CADIndie.
  * For use under LGPL-3.0
  */
 
@@ -71,8 +71,24 @@ void glBindFragDataLocation( 	GLuint program,
     }
 }
 
-static void insert_fragout_pos(char* source, const char* name, GLuint pos) {
-   //TODO implement lol
+void glGetShaderiv(GLuint shader, GLuint pname, GLint* params) {
+    if(!current_context) return;
+    shader_info_t* shader_info = unordered_map_get(current_context->shader_map, (void*)shader);
+    if(shader_info != NULL && shader_info->shader_type == GL_FRAGMENT_SHADER && pname == GL_COMPILE_STATUS) {
+        // HACK: ignore compile results for frag shaders, as some drivers may not compile them without explicit fragouts
+        // (which we add at link-time)
+        *params = GL_TRUE;
+        return;
+    }
+    es3_functions.glGetShaderiv(shader, pname, params);
+}
+
+static void insert_fragout_pos(char* source, int* size, const char* name, GLuint pos) {
+    char src_string[256] = { 0 };
+    char dst_string[256] = { 0 };
+    snprintf(src_string, sizeof(src_string), "/* LTW INSERT LOCATION %s LTW */", name);
+    snprintf(dst_string, sizeof(dst_string), "layout(location = %u) ", pos);
+    gl4es_inplace_replace_simple(source, size, src_string, dst_string);
 }
 
 void glLinkProgram(GLuint program) {
@@ -87,19 +103,21 @@ void glLinkProgram(GLuint program) {
         printf("LTWShdrWp: failed to patch frag data location due to missing shader info\n");
         goto fallthrough;
     }
-    size_t nsrc_size = strlen(shader->source) + 1;
+    int nsrc_size = (int)(strlen(shader->source) + 1);
     char* new_source = malloc(nsrc_size);
     memcpy(new_source, shader->source, nsrc_size);
     bool changesMade = false;
     for(GLuint i = 0; i < MAX_DRAWBUFFERS; i++) {
         const char* colorbind = program_info->colorbindings[i];
         if(colorbind == NULL) continue;
-        insert_fragout_pos(new_source, colorbind, i);
+        insert_fragout_pos(new_source, &nsrc_size, colorbind, i);
         changesMade = true;
     }
     if(!changesMade) {
         free(new_source);
         goto fallthrough;
+    }else {
+        //printf("\n\n\nShader Result POST PATCH\n%s\n\n\n", new_source);
     }
     const GLchar* const_source = (const GLchar*)new_source;
     GLuint patched_shader = es3_functions.glCreateShader(GL_FRAGMENT_SHADER);
@@ -118,9 +136,10 @@ void glLinkProgram(GLuint program) {
         es3_functions.glGetShaderiv(patched_shader, GL_INFO_LOG_LENGTH, &logSize);
         GLchar log[logSize];
         es3_functions.glGetShaderInfoLog(patched_shader, logSize, NULL, log);
-        printf("LTWShdrWp: failed to compile patched fragment shader, using default. Log:\n%s\n", log);
+        printf("LTWShdrWp: failed to compile patched fragment shader, using default. Log:\n\n%s\n\nShader content:\n\n%s\n\n", log, const_source);
         goto fallthrough;
     }
+    es3_functions.glDetachShader(program, program_info->frag_shader);
     es3_functions.glAttachShader(program, patched_shader);
     es3_functions.glLinkProgram(program);
     es3_functions.glDeleteShader(patched_shader);
