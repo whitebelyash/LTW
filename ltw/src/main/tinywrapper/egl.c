@@ -149,17 +149,24 @@ static void find_esversion(context_t* context) {
     // DONT UPSTREAM
     bool use_mdi = env_istrue("LTW_FORCE_USE_MDI");
     if(use_mdi){
-        printf("LTW: Will use multi_draw_indirect for BaseVertex draws");
-        if(!strstr(extensions, "GL_EXT_multi_draw_indirect"))
-            printf("LTW: MDI extension not found in the driver");
+        printf("LTW: Will try using multi_draw_indirect for BaseVertex draws\n");
+        if(!strstr(extensions, "GL_EXT_multi_draw_indirect")){
+            printf("LTW: MDI extension not found in the driver\n");
+            goto BV;
+        }
         else context->multidraw_indirect = true;
     }
-    bool basevertex_oes = strstr(extensions, "GL_OES_draw_elements_base_vertex");
-    bool basevertex_ext = strstr(extensions, "GL_EXT_draw_elements_base_vertex");
-    if(context->es32) context->drawelementsbasevertex = es3_functions.glDrawElementsBaseVertex;
-    else if(basevertex_oes) context->drawelementsbasevertex = es3_functions.glDrawElementsBaseVertexOES;
-    else if(basevertex_ext) context->drawelementsbasevertex = es3_functions.glDrawElementsBaseVertexEXT;
-    else context->drawelementsbasevertex = NULL;
+    else {
+BV:
+        printf("LTW: Will try using native BaseVertex extension");
+        bool basevertex_oes = strstr(extensions, "GL_OES_draw_elements_base_vertex");
+        bool basevertex_ext = strstr(extensions, "GL_EXT_draw_elements_base_vertex");
+        if(context->es32) context->drawelementsbasevertex = es3_functions.glDrawElementsBaseVertex;
+        else if(basevertex_oes) context->drawelementsbasevertex = es3_functions.glDrawElementsBaseVertexOES;
+        else if(basevertex_ext) context->drawelementsbasevertex = es3_functions.glDrawElementsBaseVertexEXT;
+        else context->drawelementsbasevertex = NULL;
+    }
+
 
     build_extension_string(context);
 
