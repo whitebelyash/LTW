@@ -122,6 +122,7 @@ void glMultiDrawElementsBaseVertex(GLenum mode,
     es3_functions.glBindBuffer(GL_DRAW_INDIRECT_BUFFER, renderer->indirectRenderBuffer);
     es3_functions.glBufferData(GL_DRAW_INDIRECT_BUFFER, (long)sizeof(indirect_pass_t) * drawcount, indirect_passes, GL_STREAM_DRAW);
     if(current_context->multidraw_indirect) {
+        printf("LTW DEBUG: using MDI!!");
         es3_functions.glMultiDrawElementsIndirectEXT(mode, type, 0, drawcount, 0);
     } else for(GLsizei i = 0; i < drawcount; i++) {
         es3_functions.glDrawElementsIndirect(mode, type, (void*)(sizeof(indirect_pass_t) * i));
