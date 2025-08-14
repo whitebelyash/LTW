@@ -19,11 +19,6 @@
 #define MAX_TMUS 8
 #define MAX_TEXTARGETS 8
 
-typedef enum {
-    MULTIDRAW_INDIRECT,
-    DRAW_BASE_VERTEX
-} basevertex_impl_t;
-
 typedef struct {
     bool ready;
     GLuint indirectRenderBuffer;
