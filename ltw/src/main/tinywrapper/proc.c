@@ -54,7 +54,7 @@ __attribute__((used)) eglMustCastToProperFunctionPointerType glXGetProcAddress(c
 
 static eglMustCastToProperFunctionPointerType resolve_stub(const char* procname) {
     size_t procnamelen = strlen(procname);
-    size_t stublen = procnamelen + 5;
+    size_t stublen = procnamelen + 6;
     char stub_procname[stublen];
     memcpy(stub_procname, "stub_", 5);
     memcpy(stub_procname + 5, procname, procnamelen);
