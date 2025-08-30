@@ -39,7 +39,7 @@ static void init_es3_proc() {
 }
 
 __attribute__((constructor, used)) void proc_init(){
-    const char* eglPath = getenv("EGL_PATH") != NULL ? getenv("EGL_PATH") : "libEGL.so";
+    const char* eglPath = getenv("LIBGL_EGL") != NULL ? getenv("LIBGL_EGL") : "libEGL.so";
     void* eglHandle = dlopen(eglPath, RTLD_LAZY | RTLD_LOCAL);
     if(eglHandle == NULL) error_sysegl();
     host_eglGetProcAddress = dlsym(eglHandle, "eglGetProcAddress");
