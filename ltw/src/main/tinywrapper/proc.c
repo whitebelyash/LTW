@@ -39,9 +39,16 @@ static void init_es3_proc() {
 }
 
 __attribute__((constructor, used)) void proc_init(){
-    const char* eglPath = getenv("LIBGL_EGL") != NULL ? getenv("LIBGL_EGL") : "libEGL.so";
-    void* eglHandle = dlopen(eglPath, RTLD_LAZY | RTLD_LOCAL);
-    if(eglHandle == NULL) error_sysegl();
+    const char* systemEglPath = "libEGL.so";
+    const char* eglPath = getenv("LIBGL_EGL") != NULL ? getenv("LIBGL_EGL") : systemEglPath;
+    int flags = RTLD_LAZY | RTLD_LOCAL;
+    void* eglHandle = dlopen(eglPath, flags);
+    if(eglHandle == NULL){
+        printf("LTWInit: failed loading custom libEGL, using default\n");
+        eglHandle = dlopen(systemEglPath, flags);
+        if(eglHandle == NULL)
+            error_sysegl();
+    }
     host_eglGetProcAddress = dlsym(eglHandle, "eglGetProcAddress");
     if(host_eglGetProcAddress == NULL) error_sysegl();
     init_egl();
