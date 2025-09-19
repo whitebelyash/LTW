@@ -44,7 +44,7 @@ static void init_es3_proc() {
 eglMustCastToProperFunctionPointerType sysglGetProcAddr(const char *procname){
 	if(!gles_Handle)
 		return host_eglGetProcAddress(procname);
-	printf("LTW: Resolving %s from custom libGLES!\n");
+	printf("LTW: Resolving %s from custom libGLES!\n", procname);
 	return dlsym(gles_Handle, procname);
 }
 
