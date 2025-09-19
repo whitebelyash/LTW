@@ -17,7 +17,10 @@
 #include "GL/glext.h"
 
 INTERNAL eglMustCastToProperFunctionPointerType (*host_eglGetProcAddress)(const char *procname);
+INTERNAL eglMustCastToProperFunctionPointerType (*ltw_glGetProcAddr)(const char *procname);
 INTERNAL es3_functions_t es3_functions;
+
+INTERNAL void* gles_Handle;
 
 static void error_sysegl() {
     __android_log_print(ANDROID_LOG_ERROR, "LTWInit", "Failed to load system EGL: %s", dlerror());
@@ -33,14 +36,22 @@ static void init_es3_proc() {
 #define GLESFUNC(name, type) es3_functions.name = (type)host_eglGetProcAddress(#name); if(es3_functions.name == NULL) error_init(#name);
 #include "es3_functions.h"
 #undef GLESFUNC
-#define GLESFUNC(name, type) es3_functions.name = (type)host_eglGetProcAddress(#name);
+#define GLESFUNC(name, type) es3_functions.name = (type)ltw_glGetProcAddr(#name);
 #include "es3_extended.h"
 #undef GLESFUNC
+}
+
+eglMustCastToProperFunctionPointerType sysglGetProcAddr(const char *procname){
+	if(!gles_Handle)
+		return host_eglGetProcAddress(procname);
+	printf("LTW: Resolving %s from custom libGLES!\n");
+	return dlsym(gl_Handle, procname);
 }
 
 __attribute__((constructor, used)) void proc_init(){
     const char* systemEglPath = "libEGL.so";
     const char* eglPath = getenv("LIBGL_EGL") != NULL ? getenv("LIBGL_EGL") : systemEglPath;
+    const char* glesPath = getenv("LIBGL_GLES");
     int flags = RTLD_LAZY | RTLD_LOCAL;
     void* eglHandle = dlopen(eglPath, flags);
     if(eglHandle == NULL){
@@ -49,8 +60,12 @@ __attribute__((constructor, used)) void proc_init(){
         if(eglHandle == NULL)
             error_sysegl();
     }
+    if(glesPath){
+	gles_Handle = dlopen(glesPath, flags);
+    }
     host_eglGetProcAddress = dlsym(eglHandle, "eglGetProcAddress");
     if(host_eglGetProcAddress == NULL) error_sysegl();
+    ltw_glGetProcAddr = sysglGetProcAddr;
     init_egl();
     init_es3_proc();
 }
