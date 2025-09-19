@@ -45,7 +45,7 @@ eglMustCastToProperFunctionPointerType sysglGetProcAddr(const char *procname){
 	if(!gles_Handle)
 		return host_eglGetProcAddress(procname);
 	printf("LTW: Resolving %s from custom libGLES!\n");
-	return dlsym(gl_Handle, procname);
+	return dlsym(gles_Handle, procname);
 }
 
 __attribute__((constructor, used)) void proc_init(){
