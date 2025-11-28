@@ -125,8 +125,11 @@ void build_extension_string(context_t* context) {
     // Used by Minecraft for the GPU usage counter
     if(context->timer_query)
         add_extra_extension(context, &length, "GL_ARB_timer_query");
-    if(context->es31)
+    // Compute shaders are ES3.1+. No reason to support older devices
+    if(context->es31) {
         add_extra_extension(context, &length, "GL_ARB_shader_image_load_store");
+        add_extra_extension(context, &length, "GL_ARB_compute_shader");
+    }
     // More extensions are possible, but will need way more wraps and tracking.
     fin_extra_extensions(context, length);
 }
