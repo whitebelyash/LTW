@@ -307,7 +307,7 @@ const GLubyte* glGetString(GLenum name) {
     if(!current_context) return NULL;
     switch(name) {
         case GL_VERSION:
-            return (const GLubyte*)"3.0 OpenLTW";
+            return (const GLubyte*)"3.0 OpenLTW (Built on: "__DATE__"/"__TIME__")";
         case GL_SHADING_LANGUAGE_VERSION:
             return (const GLubyte*)"4.60 LTW";
         case GL_VENDOR:
@@ -431,14 +431,6 @@ void glGetIntegerv(GLenum pname, GLint* data) {
         default:
             es3_functions.glGetIntegerv(pname, data);
     }
-}
-
-void glGetQueryObjectiv( 	GLuint id,
-                            GLenum pname,
-                            GLint * params) {
-    if(!current_context) return;
-    // This is not recommended but i don't care
-    es3_functions.glGetQueryObjectuiv(id, pname, (GLuint*)params);
 }
 
 void glDepthRange(GLdouble nearVal,
