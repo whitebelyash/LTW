@@ -10,7 +10,7 @@ add_compile_definitions(_LIB UTIL_ARCH_LITTLE_ENDIAN=1 UTIL_ARCH_BIG_ENDIAN=0 UN
 if(ANDROID)
 	add_compile_definitions("ANDROID" DETECT_OS_ANDROID)
 else()
-	add_compile_definitions(HAVE_TIMESPEC_GET)
+	add_compile_definitions(HAVE_TIMESPEC_GET _GNU_SOURCE)
 endif()
 
 add_library(glsl_optimizer ${GLSL_OPTIMIZER_SRC} ${GLSL_OPTIMIZER_CPP_SRC})
