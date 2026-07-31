@@ -125,6 +125,8 @@ void build_extension_string(context_t* context) {
     // Compute shaders are ES3.1+. No reason to support older devices
     if(context->es31) {
         add_extra_extension(context, &length, "GL_ARB_shader_image_load_store");
+        // Do we even implement enough features for it?
+        add_extra_extension(context, &length, "GL_ARB_shader_storage_buffer_object");
         add_extra_extension(context, &length, "GL_ARB_compute_shader");
     }
     // More extensions are possible, but will need way more wraps and tracking.
