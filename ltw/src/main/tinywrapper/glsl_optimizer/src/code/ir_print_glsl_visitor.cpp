@@ -593,7 +593,16 @@ static const char* image_load_store_format(pipe_format format) {
 }
 void IR_TO_GLSL::print_generic_layout_block(ir_variable* ir) {
     auto &data = ir->data;
-    bool should_print = data.binding || data.explicit_location || data.explicit_component || data.image_format;
+    // Maybe pick better formats? Not sure yet
+    if (data.image_format == 0 && ir->type->is_image()) {
+        switch(ir->type->sampled_type){
+            case GLSL_TYPE_FLOAT: data.image_format = PIPE_FORMAT_R32_FLOAT; break;
+            case GLSL_TYPE_INT: data.image_format = PIPE_FORMAT_R32_SINT; break;
+            case GLSL_TYPE_UINT: data.image_format = PIPE_FORMAT_R32_UINT; break;
+            default: return;
+        }
+    }
+    bool should_print = data.binding || data.explicit_location || data.explicit_component || data.image_format || ir->type->is_image();
     if(!should_print) return;
     bool packed_stream = data.stream & (1u << 31);
     if(packed_stream) {
@@ -667,7 +676,7 @@ IR_TO_GLSL::visit(ir_variable* ir)
 		}
 	}
 
-	// give an id to any variable defined in a 
+	// give an id to any variable defined in a
 	// function that is not an uniform
 	if (this->mode == 0 && ir->data.mode != ir_var_uniform)
 	{
@@ -717,6 +726,10 @@ IR_TO_GLSL::visit(ir_variable* ir)
 	};
 	const char* const interp[] = { "", "smooth ", "flat ", "noperspective ", "EXPLICIT ", "COLOR " };
 	STATIC_ASSERT(ARRAY_SIZE(interp) == INTERP_MODE_COUNT);
+
+    // Qualcomm blob ignores image precision, but who cares about it?
+    if(ir->type->is_image() && ir->data.precision == GLSL_PRECISION_NONE)
+        ir->data.precision = GLSL_PRECISION_MEDIUM; // maybe try highp/lowp...
 
 	// keep invariant declaration for builtin variables
 	if (strstr(ir->name, "gl_") == ir->name)
