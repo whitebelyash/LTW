@@ -9,6 +9,7 @@
 #include "glsl_optimizer/src/code/c_wrapper.h"
 #include <GLES3/gl3.h>
 #include <string.h>
+#include <stdio.h>
 #include "string_utils.h"
 #include "egl.h"
 #include "proc.h"
@@ -192,9 +193,15 @@ void glShaderSource(GLuint shader, GLsizei count, const GLchar *const*string, co
 
 #undef SRC_LEN
     GLchar* new_source = optimize_shader(target_string, shader_info->shader_type, 460, current_context->shader_version);
-    //printf("\n\n\nShader Result\n%s\n\n\n", new_source);
     if(shader_info->source != NULL) free((void*)shader_info->source);
-    shader_info->source = new_source;
+    if(!new_source) {
+        printf("LTWShdrWp: failed to convert&optimize shader %u, skipping\n", shader);
+        goto end;
+    } else {
+        //printf("\n\n\nShader Result\n%s\n\n\n", new_source);
+        shader_info->source = new_source;
+    }
     es3_functions.glShaderSource(shader, 1, &shader_info->source, 0);
+    end:
     free(target_string);
 }

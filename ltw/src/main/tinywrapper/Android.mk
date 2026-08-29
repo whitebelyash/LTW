@@ -54,6 +54,7 @@ LOCAL_SRC_FILES := glsl_optimizer/src/code/ir_print_glsl_visitor.cpp \
    glsl_optimizer/src/compiler/glsl/ir_equals.cpp \
    glsl_optimizer/src/compiler/glsl/ir_function_can_inline.cpp \
    glsl_optimizer/src/compiler/glsl/lower_vec_index_to_cond_assign.cpp \
+   glsl_optimizer/src/compiler/glsl/lower_variable_index_to_cond_assign.cpp \
    glsl_optimizer/src/compiler/glsl/standalone_scaffolding.cpp \
    glsl_optimizer/src/compiler/glsl/link_uniform_blocks.cpp \
    glsl_optimizer/src/compiler/glsl/opt_function_inlining.cpp \
@@ -414,5 +415,5 @@ LOCAL_STATIC_LIBRARIES := glsl_optimizer
 LOCAL_LDFLAGS := -ffunction-sections -fdata-sections -Wl,--version-script=$(LOCAL_PATH)/version.script
 # Comment for debugging
 LOCAL_LDFLAGS += -flto -Wl,--gc-sections
-LOCAL_LDLIBS := -llog -lEGL
+LOCAL_LDLIBS := -llog
 include $(BUILD_SHARED_LIBRARY)
