@@ -44,3 +44,18 @@ void glMultiDrawElements( GLenum mode, GLsizei *count, GLenum type, const void *
     if(elementbuffer != 0) es3_functions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
 
 }
+
+void glMultiDrawElementsIndirect(GLenum mode, GLenum type, const void *indirect, GLsizei drawcount, GLsizei stride){
+    if(!current_context) return;
+    if(current_context->multidraw_indirect) {
+        es3_functions.glMultiDrawElementsIndirectEXT(mode, type, indirect, drawcount, stride);
+    }
+    // TODO: handle MDI emulation if needed
+}
+
+void glMultiDrawArraysIndirect(GLenum mode, const void *indirect, GLsizei drawcount, GLsizei stride) {
+    if(!current_context) return;
+    if(current_context->multidraw_indirect) {
+        es3_functions.glMultiDrawArraysIndirectEXT(mode, indirect, drawcount, stride);
+    }
+}
