@@ -205,3 +205,17 @@ void glShaderSource(GLuint shader, GLsizei count, const GLchar *const*string, co
     end:
     free(target_string);
 }
+
+void glCompileShader(GLuint shader) {
+    es3_functions.glCompileShader(shader);
+    int s;
+    es3_functions.glGetShaderiv(shader, GL_COMPILE_STATUS, &s);
+    if(!s) {
+        printf("LTW: Unable to compile shader %u!\n", shader);
+        char buf[2048];
+        es3_functions.glGetShaderInfoLog(shader, 2048, NULL, buf);
+        printf("=================================\n");
+        printf("%s\n", buf);
+        printf("=================================\n");
+    }
+}

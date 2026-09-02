@@ -452,7 +452,7 @@ void glGetProgramiv(GLuint program, GLenum pname, GLint *params){
     if(!current_context) return;
     es3_functions.glGetProgramiv(program, pname, params);
     // HACK: Some drivers fail linking programs due to fragment shader build failures. Let's ignore this so the game at least boots
-    if(ignore_linking_errors && pname == GL_LINK_STATUS && *params == GL_FALSE){
+    if(true && pname == GL_LINK_STATUS && *params == GL_FALSE){
         printf("LTW: Invalid program %u, will pass anyway\n", program);
         *params = GL_TRUE;
     }
