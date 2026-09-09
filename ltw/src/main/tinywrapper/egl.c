@@ -125,6 +125,25 @@ void build_extension_string(context_t* context) {
     add_extra_extension(context, &length, "GL_ARB_clear_texture");
     // Used by Minecraft for the GPU usage counter (see Blaze3D TimerQuery)
     add_extra_extension(context, &length, "GL_ARB_timer_query");
+    if(context->multidraw_indirect) {
+        add_extra_extension(context, &length, "GL_ARB_draw_indirect"); // Well, duh, we already should support it
+        add_extra_extension(context, &length, "GL_ARB_multi_draw_indirect");
+    }
+    // Additionally required by Minecraft for multidraw indirect rendering path
+    // Only ANGLE exposes this extension from what I know
+    if(context->base_instance) {
+        add_extra_extension(context, &length, "GL_ARB_base_instance");
+    }
+    // Used by Minecraft for the GPU usage counter
+    if(context->timer_query)
+        add_extra_extension(context, &length, "GL_ARB_timer_query");
+    // Compute shaders are ES3.1+. No reason to support older devices
+    if(context->es31) {
+        add_extra_extension(context, &length, "GL_ARB_shader_image_load_store");
+        // Do we even implement enough features for it?
+        add_extra_extension(context, &length, "GL_ARB_shader_storage_buffer_object");
+        add_extra_extension(context, &length, "GL_ARB_compute_shader");
+    }
     // More extensions are possible, but will need way more wraps and tracking.
     fin_extra_extensions(context, length);
 }
@@ -154,6 +173,7 @@ static void find_esversion(context_t* context) {
     if(strstr(extensions, "GL_EXT_buffer_storage")) context->buffer_storage = true;
     if(strstr(extensions, "GL_EXT_texture_buffer")) context->buffer_texture_ext = true;
     if(strstr(extensions, "GL_EXT_multi_draw_indirect")) context->multidraw_indirect = true;
+    if(strstr(extensions, "GL_EXT_base_instance")) context->base_instance = true;
 
     // EXT_disjoint_timer_query provides accurate int64 timer queries
     // on Core Profile it's ARB_timer_query instead

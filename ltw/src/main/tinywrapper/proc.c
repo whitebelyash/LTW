@@ -7,7 +7,7 @@
 #include <GLES3/gl31.h>
 #include <dlfcn.h>
 #include <stdlib.h>
-#include <android/log.h>
+#include <stdio.h>
 #include <string.h>
 #include "proc.h"
 #include "egl.h"
@@ -20,12 +20,12 @@ INTERNAL eglMustCastToProperFunctionPointerType (*host_eglGetProcAddress)(const 
 INTERNAL es3_functions_t es3_functions;
 
 static void error_sysegl() {
-    __android_log_print(ANDROID_LOG_ERROR, "LTWInit", "Failed to load system EGL: %s", dlerror());
+    printf("LTWInit: Failed to load system EGL: %s\n", dlerror());
     abort();
 }
 
 static void error_init(const char* functionName) {
-    __android_log_print(ANDROID_LOG_ERROR, "LTWInit", "Failed to load function \"%s\"", functionName);
+    printf("LTWInit: Failed to load function \"%s\"\n", functionName);
     abort();
 }
 
@@ -60,15 +60,7 @@ __attribute__((used)) eglMustCastToProperFunctionPointerType glXGetProcAddress(c
     return eglGetProcAddress(procname);
 }
 
-static eglMustCastToProperFunctionPointerType resolve_stub(const char* procname) {
-    size_t procnamelen = strlen(procname);
-    size_t stublen = procnamelen + 6;
-    char stub_procname[stublen];
-    memcpy(stub_procname, "stub_", 5);
-    memcpy(stub_procname + 5, procname, procnamelen);
-    stub_procname[stublen] = 0;
-    return dlsym(NULL, stub_procname);
-}
+extern void* resolve_stub(const char* procname);
 
 eglMustCastToProperFunctionPointerType eglGetProcAddress(const char *procname) {
     // EGL functions that we implement.
@@ -90,6 +82,8 @@ eglMustCastToProperFunctionPointerType eglGetProcAddress(const char *procname) {
     eglMustCastToProperFunctionPointerType function;
 fallback:
     function = host_eglGetProcAddress(procname);
-    if(function == NULL) function = resolve_stub(procname);
+    if(function == NULL) {
+        function = resolve_stub(procname);
+    }
     return function;
 }

@@ -184,6 +184,9 @@ char * GlslConvert::Optimize(
 			if (!state->translation_unit.is_empty())
 				_mesa_ast_to_hir(ir, state);
 
+            if(!state->error)
+                _mesa_set_shader_inout_layout(shader, state);
+
 			if (!state->error)
 			{
 				// Link built-in functions
@@ -229,7 +232,7 @@ char * GlslConvert::Optimize(
 					}
 
 					// Do optimization post-link
-                    apply_optimizations(ir, linked, &compileOptions);
+                    apply_optimizations(ir, linked, &compileOptions, (gl_shader_stage) vShaderType);
 
 
 					validate_ir_tree(ir);
@@ -314,7 +317,8 @@ char * GlslConvert::Optimize(
 void GlslConvert::apply_optimizations(
         struct  exec_list *vIr,
         bool linked,
-        gl_shader_compiler_options* vCompilerFlags
+        gl_shader_compiler_options* vCompilerFlags,
+        gl_shader_stage vShaderType
 ) {
    unsigned int passes = 0;
 	while (passes < 1){
@@ -325,6 +329,7 @@ void GlslConvert::apply_optimizations(
       lower_discard(vIr);
       lower_discard_flow(vIr);
       lower_instructions(vIr, false, false);
+      lower_variable_index_to_cond_assign(vShaderType, vIr, true, true, true, true);
    }
 }
 
