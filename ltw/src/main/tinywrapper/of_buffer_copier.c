@@ -171,18 +171,3 @@ void glCopyTexSubImage2D(GLenum target,
         }
     }
 }
-
-void glClearTexImage(GLuint texture,
-                     GLint level,
-                     GLenum format,
-                     GLenum type,
-                     const void * data) {
-    if(!current_context) return;
-    framebuffer_copier_t* copier = &current_context->framebuffer_copier;
-    if(!copier->ready) return;
-
-    es3_functions.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, copier->tempfb);
-    es3_functions.glFramebufferTexture2D(copier->tempfb, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, level);
-    es3_functions.glClearBufferiv(GL_COLOR, GL_COLOR_ATTACHMENT0, data);
-    es3_functions.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-}
