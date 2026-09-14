@@ -111,6 +111,7 @@ public:
 	void *mem_ctx = 0;
 	sbuffer& generated_source;
 	loop_state* loopstate = 0;
+	hash_table *image_usage_table = 0;
 	int expression_depth = 0;
 	int indentation = 0;
 	bool inside_loop_body = false;

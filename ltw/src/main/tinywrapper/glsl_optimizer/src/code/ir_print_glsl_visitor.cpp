@@ -12,6 +12,9 @@
 
 const char* const precision[] = { "", "highp ", "mediump ", "lowp " };
 
+static void analyze_image_usage_instruction(ir_instruction* ir, hash_table* usage);
+static void analyze_image_usage_rvalue(ir_rvalue* rv, hash_table* usage);
+
 struct ga_entry : public exec_node
 {
 	ga_entry(ir_instruction* ir)
@@ -360,6 +363,9 @@ char * IR_TO_GLSL::Convert(
     global.enable_nan_check = shader_nan_check;
 	int uses_texlod_impl = 0;
 	int uses_texlodproj_impl = 0;
+	hash_table* image_usage = _mesa_pointer_hash_table_create(NULL);
+	foreach_in_list(ir_instruction, ir, instructions)
+		analyze_image_usage_instruction(ir, image_usage);
 	loop_state* ls = analyze_loop_variables(instructions);
 	if (ls)
 	{
@@ -377,6 +383,7 @@ char * IR_TO_GLSL::Convert(
 
 			IR_TO_GLSL v(res, &global, state);
 			v.loopstate = ls;
+			v.image_usage_table = image_usage;
 
 			ir->accept(&v);
 			if (ir->ir_type != ir_type_function && !v.skipped_this_ir)
@@ -388,6 +395,8 @@ char * IR_TO_GLSL::Convert(
 
 		delete ls;
 	}
+
+	_mesa_hash_table_destroy(image_usage, NULL);
 
 	print_texlod_workarounds(uses_texlod_impl, uses_texlodproj_impl, res);
     res.append("\n\n");
@@ -591,18 +600,190 @@ static const char* image_load_store_format(pipe_format format) {
             return "unknown";
     }
 }
+
+/*
+ * Usage-based image qualifier deduction for OpenGL ES output.
+ *
+ */
+#define IMAGE_USE_READ   (1u << 0)
+#define IMAGE_USE_WRITE  (1u << 1)
+
+static void
+analyze_image_usage_rvalue(ir_rvalue* rv, hash_table* usage)
+{
+   if (!rv)
+      return;
+
+   switch (rv->ir_type) {
+   case ir_type_call:
+      analyze_image_usage_instruction(rv, usage);
+      return;
+   case ir_type_expression: {
+      ir_expression* expr = static_cast<ir_expression*>(rv);
+      for (unsigned i = 0; i < expr->num_operands; i++)
+         analyze_image_usage_rvalue(expr->operands[i], usage);
+      return;
+   }
+   case ir_type_swizzle:
+      analyze_image_usage_rvalue(static_cast<ir_swizzle*>(rv)->val, usage);
+      return;
+   case ir_type_dereference_array: {
+      ir_dereference_array* deref = static_cast<ir_dereference_array*>(rv);
+      analyze_image_usage_rvalue(deref->array, usage);
+      analyze_image_usage_rvalue(deref->array_index, usage);
+      return;
+   }
+   case ir_type_dereference_record:
+      analyze_image_usage_rvalue(static_cast<ir_dereference_record*>(rv)->record, usage);
+      return;
+   case ir_type_texture: {
+      ir_texture* tex = static_cast<ir_texture*>(rv);
+      analyze_image_usage_rvalue(tex->sampler, usage);
+      analyze_image_usage_rvalue(tex->coordinate, usage);
+      analyze_image_usage_rvalue(tex->projector, usage);
+      analyze_image_usage_rvalue(tex->shadow_comparator, usage);
+      analyze_image_usage_rvalue(tex->offset, usage);
+      return;
+   }
+   default:
+      return;
+   }
+}
+
+static void
+analyze_image_usage_instruction(ir_instruction* ir, hash_table* usage)
+{
+   if (!ir)
+      return;
+
+   switch (ir->ir_type) {
+   case ir_type_call: {
+      ir_call* call = static_cast<ir_call*>(ir);
+      if (call->callee && call->callee->is_intrinsic()) {
+         unsigned flags = 0;
+         switch (call->callee->intrinsic_id) {
+         case ir_intrinsic_image_load:
+         case ir_intrinsic_image_sparse_load:
+         case ir_intrinsic_image_size:
+         case ir_intrinsic_image_samples:
+            flags = IMAGE_USE_READ;
+            break;
+         case ir_intrinsic_image_store:
+            flags = IMAGE_USE_WRITE;
+            break;
+         case ir_intrinsic_image_atomic_add:
+         case ir_intrinsic_image_atomic_and:
+         case ir_intrinsic_image_atomic_or:
+         case ir_intrinsic_image_atomic_xor:
+         case ir_intrinsic_image_atomic_min:
+         case ir_intrinsic_image_atomic_max:
+         case ir_intrinsic_image_atomic_exchange:
+         case ir_intrinsic_image_atomic_comp_swap:
+         case ir_intrinsic_image_atomic_inc_wrap:
+         case ir_intrinsic_image_atomic_dec_wrap:
+            flags = IMAGE_USE_READ | IMAGE_USE_WRITE;
+            break;
+         default:
+            break;
+         }
+
+         if (flags) {
+            exec_node* node = call->actual_parameters.get_head();
+            if (!node->is_head_sentinel()) {
+               ir_dereference* deref = static_cast<ir_rvalue*>(node)->as_dereference();
+               if (deref) {
+                  ir_variable* var = deref->variable_referenced();
+                  if (var) {
+                     unsigned prev = 0;
+                     hash_entry* entry = _mesa_hash_table_search(usage, var);
+                     if (entry)
+                        prev = (unsigned)(uintptr_t)entry->data;
+                     _mesa_hash_table_insert(usage, var, (void*)(uintptr_t)(prev | flags));
+                  }
+               }
+            }
+         }
+      }
+
+      if (call->return_deref)
+         analyze_image_usage_rvalue(call->return_deref, usage);
+      foreach_in_list(ir_instruction, param, &call->actual_parameters)
+         analyze_image_usage_rvalue(static_cast<ir_rvalue*>(param), usage);
+      return;
+   }
+   case ir_type_function:
+      foreach_in_list(ir_function_signature, sig, &static_cast<ir_function*>(ir)->signatures)
+         analyze_image_usage_instruction(sig, usage);
+      return;
+   case ir_type_function_signature:
+      foreach_in_list(ir_instruction, inst, &static_cast<ir_function_signature*>(ir)->body)
+         analyze_image_usage_instruction(inst, usage);
+      return;
+   case ir_type_if: {
+      ir_if* iff = static_cast<ir_if*>(ir);
+      analyze_image_usage_rvalue(iff->condition, usage);
+      foreach_in_list(ir_instruction, inst, &iff->then_instructions)
+         analyze_image_usage_instruction(inst, usage);
+      foreach_in_list(ir_instruction, inst, &iff->else_instructions)
+         analyze_image_usage_instruction(inst, usage);
+      return;
+   }
+   case ir_type_loop:
+      foreach_in_list(ir_instruction, inst, &static_cast<ir_loop*>(ir)->body_instructions)
+         analyze_image_usage_instruction(inst, usage);
+      return;
+   case ir_type_assignment: {
+      ir_assignment* asg = static_cast<ir_assignment*>(ir);
+      analyze_image_usage_rvalue(asg->lhs, usage);
+      analyze_image_usage_rvalue(asg->rhs, usage);
+      return;
+   }
+   default:
+      return;
+   }
+}
+
 void IR_TO_GLSL::print_generic_layout_block(ir_variable* ir) {
     auto &data = ir->data;
+    const glsl_type* type = ir->type->without_array();
+    const bool is_image = type->is_image();
     // Maybe pick better formats? Not sure yet
-    if (data.image_format == 0 && ir->type->is_image()) {
-        switch(ir->type->sampled_type){
+    if (data.image_format == 0 && is_image) {
+        switch(type->sampled_type){
             case GLSL_TYPE_FLOAT: data.image_format = PIPE_FORMAT_R32_FLOAT; break;
             case GLSL_TYPE_INT: data.image_format = PIPE_FORMAT_R32_SINT; break;
             case GLSL_TYPE_UINT: data.image_format = PIPE_FORMAT_R32_UINT; break;
             default: return;
         }
     }
-    bool should_print = data.binding || data.explicit_location || data.explicit_component || data.image_format || ir->type->is_image();
+
+    // GLSL ES 3.1 restricts read-write images to r32f/r32i/r32ui
+    if (state->es_shader && is_image &&
+        data.image_format != PIPE_FORMAT_R32_FLOAT &&
+        data.image_format != PIPE_FORMAT_R32_SINT &&
+        data.image_format != PIPE_FORMAT_R32_UINT &&
+        !data.memory_read_only && !data.memory_write_only) {
+        unsigned flags = 0;
+        if (image_usage_table) {
+            hash_entry* entry = _mesa_hash_table_search(image_usage_table, ir);
+            if (entry)
+                flags = (unsigned)(uintptr_t)entry->data;
+        }
+        if (flags == IMAGE_USE_WRITE) {
+            data.memory_write_only = true;
+        } else if (flags == IMAGE_USE_READ) {
+            data.memory_read_only = true;
+        } else {
+            switch(type->sampled_type){
+                case GLSL_TYPE_FLOAT: data.image_format = PIPE_FORMAT_R32_FLOAT; break;
+                case GLSL_TYPE_INT: data.image_format = PIPE_FORMAT_R32_SINT; break;
+                case GLSL_TYPE_UINT: data.image_format = PIPE_FORMAT_R32_UINT; break;
+                default: break;
+            }
+        }
+    }
+
+    bool should_print = data.binding || data.explicit_location || data.explicit_component || data.image_format || is_image;
     if(!should_print) return;
     bool packed_stream = data.stream & (1u << 31);
     if(packed_stream) {
@@ -728,7 +909,7 @@ IR_TO_GLSL::visit(ir_variable* ir)
 	STATIC_ASSERT(ARRAY_SIZE(interp) == INTERP_MODE_COUNT);
 
     // Qualcomm blob ignores image precision, but who cares about it?
-    if(ir->type->is_image() && ir->data.precision == GLSL_PRECISION_NONE)
+    if(ir->type->without_array()->is_image() && ir->data.precision == GLSL_PRECISION_NONE)
         ir->data.precision = GLSL_PRECISION_MEDIUM; // maybe try highp/lowp...
 
 	// keep invariant declaration for builtin variables
