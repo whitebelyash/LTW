@@ -31,6 +31,8 @@ typedef struct {
     PFNGLBLENDFUNCIPROC blendfunci;
     PFNGLBLENDFUNCSEPARATEIPROC blendfuncseparatei;
     PFNGLCOLORMASKIPROC colormaski;
+    PFNGLENABLEIPROC enablei;
+    PFNGLDISABLEIPROC disablei;
 } blending_functions_t;
 
 typedef struct {

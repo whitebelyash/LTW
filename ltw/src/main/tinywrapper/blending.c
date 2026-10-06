@@ -20,6 +20,8 @@ GL_BLEND_FUNC(glBlendFunci, blendfunci, (GLuint buf, GLenum src, GLenum dst), bu
 GL_BLEND_FUNC(glBlendFuncSeparatei, blendfuncseparatei, (GLuint buf, GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha),
               buf, srcRGB, dstRGB, srcAlpha, dstAlpha)
 GL_BLEND_FUNC(glColorMaski, colormaski, (GLuint index, GLboolean r, GLboolean g, GLboolean b, GLboolean a), index, r, g, b, a)
+GL_BLEND_FUNC(glEnablei, enablei, (GLenum target, GLuint index), target, index)
+GL_BLEND_FUNC(glDisablei, disablei, (GLenum target, GLuint index), target, index)
 GL_BLEND_FUNC(glBlendEquationiARB, blendequationi, (GLuint buf, GLenum mode), buf, mode)
 GL_BLEND_FUNC(glBlendEquationSeparateiARB, blendequationseparatei, (GLuint buf, GLenum modeRGB, GLenum modeAlpha), buf, modeRGB, modeAlpha)
 GL_BLEND_FUNC(glBlendFunciARB, blendfunci, (GLuint buf, GLenum src, GLenum dst), buf, src, dst)

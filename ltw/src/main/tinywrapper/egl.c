@@ -196,6 +196,8 @@ static void find_esversion(context_t* context) {
     blend->blendfunci = es3_functions.glBlendFunci ## type; \
     blend->blendfuncseparatei = es3_functions.glBlendFuncSeparatei ## type; \
     blend->colormaski = es3_functions.glColorMaski ## type; \
+    blend->enablei = es3_functions.glEnablei ## type; \
+    blend->disablei = es3_functions.glDisablei ## type; \
 
     if(context->es32){
         SET_FUNC()
