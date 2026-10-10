@@ -68,6 +68,7 @@ typedef struct {
 
 typedef struct {
     EGLContext phys_context;
+    void* ffp;
     bool context_rdy;
     bool es31, es32, buffer_storage, buffer_texture_ext, multidraw_indirect, timer_query, base_instance;
     GLint shader_version;

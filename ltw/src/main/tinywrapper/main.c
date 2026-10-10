@@ -19,6 +19,7 @@
 #include "swizzle.h"
 #include "libraryinternal.h"
 #include "env.h"
+#include "ffp.h"
 
 void glClearDepth(GLdouble depth) {
     if(!current_context) return;
@@ -307,8 +308,10 @@ const GLubyte* glGetString(GLenum name) {
     if(!current_context) return NULL;
     switch(name) {
         case GL_VERSION:
+            if(ffp_compat_enabled()) return (const GLubyte*)ffp_get_version_string();
             return (const GLubyte*)"3.3 OpenLTW (Built on: "__DATE__"/"__TIME__")";
         case GL_SHADING_LANGUAGE_VERSION:
+            if(ffp_compat_enabled()) return (const GLubyte*)ffp_get_shading_language_string();
             return (const GLubyte*)"4.60 LTW";
         case GL_VENDOR:
             return (const GLubyte*)"artDev, SerpentSpirale, CADIndie";
@@ -324,8 +327,15 @@ static bool debug = false;
 
 void glEnable(GLenum cap) {
     if(!current_context) return;
+    if(ffp_handle_enable(cap, GL_TRUE)) return;
     if(cap == GL_DEBUG_OUTPUT && !debug) return;
     es3_functions.glEnable(cap);
+}
+
+void glDisable(GLenum cap) {
+    if(!current_context) return;
+    if(ffp_handle_enable(cap, GL_FALSE)) return;
+    es3_functions.glDisable(cap);
 }
 
 INTERNAL int get_buffer_index(GLenum buffer) {
@@ -416,12 +426,13 @@ void glUseProgram(GLuint program) {
 
 void glGetIntegerv(GLenum pname, GLint* data) {
     if(!current_context) return;
+    if(ffp_handle_getintegerv(pname, data)) return;
     switch (pname) {
         case GL_MAJOR_VERSION:
-            *data = 3;
+            *data = ffp_compat_enabled() ? 2 : 3;
             return;
         case GL_MINOR_VERSION:
-            *data = 3;
+            *data = ffp_compat_enabled() ? 1 : 3;
             return;
         case GL_NUM_EXTENSIONS:
             es3_functions.glGetIntegerv(pname, data);
@@ -439,8 +450,8 @@ void glGetIntegerv(GLenum pname, GLint* data) {
             *data = GL_CONTEXT_FLAG_FORWARD_COMPATIBLE_BIT;
             return;
 		case GL_CONTEXT_PROFILE_MASK:
-			// LTW is always core profile
-			*data = GL_CONTEXT_CORE_PROFILE_BIT;
+			// LTW is always core profile, unless compatibility is requested
+			*data = ffp_compat_enabled() ? (GLint)ffp_get_profile_mask() : GL_CONTEXT_CORE_PROFILE_BIT;
 			return;
         default:
             es3_functions.glGetIntegerv(pname, data);

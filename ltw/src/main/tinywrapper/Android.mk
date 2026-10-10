@@ -405,6 +405,7 @@ LOCAL_SRC_FILES := \
     multidraw.c \
     vertexattrib.c \
     swizzle.c \
+    ffp.c \
     license_notice.c \
     env.c \
     vgpu_shaderconv/shaderconv.c \

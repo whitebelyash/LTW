@@ -7,6 +7,7 @@
 #include "unordered_map/int_hash.h"
 #include "string_utils.h"
 #include "env.h"
+#include "ffp.h"
 #include <string.h>
 
 thread_local context_t *current_context;
@@ -60,6 +61,7 @@ static bool init_context(context_t* tw_context) {
 }
 
 static void free_context(context_t* tw_context) {
+    if(tw_context->ffp != NULL) ffp_context_free(tw_context->ffp);
     unordered_map_free(tw_context->shader_map);
     unordered_map_free(tw_context->program_map);
     unordered_map_free(tw_context->framebuffer_map);
@@ -134,6 +136,11 @@ void build_extension_string(context_t* context) {
         add_extra_extension(context, &length, "GL_ARB_base_instance");
     }
     // More extensions are possible, but will need way more wraps and tracking.
+    if (ffp_compat_enabled()) {
+        // Advertise the fixed-function era extensions we emulate.
+        add_extra_extension(context, &length, "GL_ARB_multitexture");
+        add_extra_extension(context, &length, "GL_EXT_texture_env_add");
+    }
     fin_extra_extensions(context, length);
 }
 
@@ -222,6 +229,7 @@ static void init_incontext(context_t* tw_context) {
     basevertex_init(tw_context);
     buffer_copier_init(tw_context);
     es3_functions.glGenBuffers(1, &tw_context->multidraw_element_buffer);
+    ffp_context_init(tw_context);
 }
 
 EGLContext eglCreateContext(EGLDisplay dpy, EGLConfig config, EGLContext share_context, const EGLint *attrib_list) {
