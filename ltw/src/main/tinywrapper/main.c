@@ -537,6 +537,22 @@ void glClearTexImageARB(GLuint texture, GLint level, GLenum format, GLenum type,
     glClearTexImage(texture, level, format, type, data);
 }
 
+void glClearTexSubImage(uint texture, int level,
+                      int xoffset, int yoffset, int zoffset,
+                      GLsizei width, GLsizei height, GLsizei depth,
+                      GLenum format, GLenum type,
+                      const void * data) {
+    printf("LTW: glClearTexSubImage is currently not supported\n");
+}
+
+void glClearTexSubImageARB(uint texture, int level,
+                        int xoffset, int yoffset, int zoffset,
+                        GLsizei width, GLsizei height, GLsizei depth,
+                        GLenum format, GLenum type,
+                        const void * data) {
+    printf("LTW: glClearTexSubImage is currently not supported\n");
+}
+
 static bool noerror;
 
 __attribute((constructor)) void init_noerror() {
