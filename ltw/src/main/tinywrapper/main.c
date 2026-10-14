@@ -514,6 +514,55 @@ void glTexBufferRangeARB(GLenum target, GLenum internalFormat, GLuint buffer, GL
     glTexBufferRange(target, internalFormat, buffer, offset, size);
 }
 
+void glClearTexImage(GLuint texture,
+                     GLint level,
+                     GLenum format,
+                     GLenum type,
+                     const void * data) {
+    if(!current_context) return;
+    if(current_context->clear_texture) {
+        es3_functions.glClearTexImageEXT(texture, level, format, type, data);
+        return;
+    }
+    framebuffer_copier_t* copier = &current_context->framebuffer_copier;
+    if(!copier->ready) return;
+
+    es3_functions.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, copier->tempfb);
+    es3_functions.glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, level);
+    es3_functions.glClearBufferiv(GL_COLOR, 0, data);
+    es3_functions.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+}
+
+void glClearTexImageARB(GLuint texture, GLint level, GLenum format, GLenum type, const void * data) {
+    glClearTexImage(texture, level, format, type, data);
+}
+
+// TODO: implement this
+static bool user_warned = false;
+void glClearTexSubImage(uint texture, int level,
+                      int xoffset, int yoffset, int zoffset,
+                      GLsizei width, GLsizei height, GLsizei depth,
+                      GLenum format, GLenum type,
+                      const void * data) {
+    if(current_context && current_context->clear_texture) {
+        es3_functions.glClearTexSubImageEXT(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, type, data);
+        return;
+    }
+    if(!user_warned) {
+        printf("LTW: glClearTexSubImage emulation is currently not supported\n");
+        user_warned = true;
+
+    }
+}
+
+void glClearTexSubImageARB(uint texture, int level,
+                        int xoffset, int yoffset, int zoffset,
+                        GLsizei width, GLsizei height, GLsizei depth,
+                        GLenum format, GLenum type,
+                        const void * data) {
+    glClearTexSubImage(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, type, data);
+}
+
 static bool noerror;
 
 __attribute((constructor)) void init_noerror() {
