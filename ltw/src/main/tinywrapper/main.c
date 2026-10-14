@@ -520,6 +520,10 @@ void glClearTexImage(GLuint texture,
                      GLenum type,
                      const void * data) {
     if(!current_context) return;
+    if(current_context->clear_texture) {
+        es3_functions.glClearTexImageEXT(texture, level, format, type, data);
+        return;
+    }
     framebuffer_copier_t* copier = &current_context->framebuffer_copier;
     if(!copier->ready) return;
 

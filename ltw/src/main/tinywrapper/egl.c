@@ -174,6 +174,7 @@ static void find_esversion(context_t* context) {
     if(strstr(extensions, "GL_EXT_texture_buffer")) context->buffer_texture_ext = true;
     if(strstr(extensions, "GL_EXT_multi_draw_indirect")) context->multidraw_indirect = true;
     if(strstr(extensions, "GL_EXT_base_instance")) context->base_instance = true;
+    if(strstr(extensions, "GL_EXT_clear_texture")) context->clear_texture = true;
 
     // EXT_disjoint_timer_query provides accurate int64 timer queries
     // on Core Profile it's ARB_timer_query instead
