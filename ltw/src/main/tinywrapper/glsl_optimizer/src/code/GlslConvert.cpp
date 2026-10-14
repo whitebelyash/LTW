@@ -184,6 +184,9 @@ char * GlslConvert::Optimize(
 			if (!state->translation_unit.is_empty())
 				_mesa_ast_to_hir(ir, state);
 
+            if(!state->error)
+                _mesa_set_shader_inout_layout(shader, state);
+
 			if (!state->error)
 			{
 				// Link built-in functions
@@ -228,8 +231,14 @@ char * GlslConvert::Optimize(
 						}
 					}
 
+					// Prevent optimization passes from removing unused shader inputs/outputs
+      					foreach_in_list(ir_instruction, node, ir) {
+         					ir_variable* var = node->as_variable();
+         					if (var && (var->data.mode == ir_var_shader_in || var->data.mode == ir_var_shader_out))
+            						var->data.always_active_io = true;
+      					}
 					// Do optimization post-link
-                    apply_optimizations(ir, linked, &compileOptions, (gl_shader_stage) vShaderType);
+                    			apply_optimizations(ir, linked, &compileOptions, (gl_shader_stage) vShaderType);
 
 
 					validate_ir_tree(ir);

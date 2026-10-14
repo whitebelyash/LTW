@@ -71,11 +71,13 @@ public:
    void newline_indent();
    void newline_deindent();
    void print_var_name(ir_variable* v);
+   void print_generic_layout_block(ir_variable* v);
    const char *unique_name(ir_variable *var);
    void emit_assignment_part(ir_dereference* lhs, ir_rvalue* rhs, unsigned write_mask, ir_rvalue* dstIndex);
    bool can_emit_canonical_for(loop_variable_state *ls);
    bool emit_canonical_for(ir_loop* ir);
    bool try_print_array_assignment(ir_dereference* lhs, ir_rvalue* rhs);
+   void print_function_header(ir_function_signature* sig);
 
    virtual void visit(ir_rvalue *);
    virtual void visit(ir_variable *);

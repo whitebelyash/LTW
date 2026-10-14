@@ -20,6 +20,21 @@
 #include "libraryinternal.h"
 #include "env.h"
 
+static unsigned int gl_major = 3;
+static unsigned int gl_minor = 3;
+
+static bool extract_gl_version(const char* version) {
+    if(!version) return false;
+    unsigned int major, minor;
+    sscanf(version, "%u.%u", &major, &minor);
+    if((major < 2 || major > 4) || minor > 9) {
+        return false;
+    }
+    gl_major = major;
+    gl_minor = minor;
+    return true;
+}
+
 void glClearDepth(GLdouble depth) {
     if(!current_context) return;
     es3_functions.glClearDepthf((GLfloat) depth);
@@ -303,15 +318,22 @@ const GLubyte* glGetStringi(GLenum name, GLuint index) {
     }
 }
 
+#define GL_VERSION_STRING "%u.%u OpenLTW (Built on: " __DATE__ "/" __TIME__ ")"
+
+static char* gl_version;
+
 const GLubyte* glGetString(GLenum name) {
     if(!current_context) return NULL;
     switch(name) {
         case GL_VERSION:
-            return (const GLubyte*)"3.3 OpenLTW (Built on: "__DATE__"/"__TIME__")";
+            if(!gl_version) {
+                asprintf(&gl_version, GL_VERSION_STRING, gl_major, gl_minor);
+            }
+            return (const GLubyte*)gl_version;
         case GL_SHADING_LANGUAGE_VERSION:
             return (const GLubyte*)"4.60 LTW";
         case GL_VENDOR:
-            return (const GLubyte*)"artDev, SerpentSpirale, CADIndie";
+            return (const GLubyte*)"MojoLauncher";
         case GL_EXTENSIONS:
             if(current_context->extensions_string != NULL) return (const GLubyte*)current_context->extensions_string;
             return (const GLubyte*)es3_functions.glGetString(GL_EXTENSIONS);
@@ -418,10 +440,10 @@ void glGetIntegerv(GLenum pname, GLint* data) {
     if(!current_context) return;
     switch (pname) {
         case GL_MAJOR_VERSION:
-            *data = 3;
+            *data = (GLint) gl_major;
             return;
         case GL_MINOR_VERSION:
-            *data = 3;
+            *data = (GLint) gl_minor;
             return;
         case GL_NUM_EXTENSIONS:
             es3_functions.glGetIntegerv(pname, data);
@@ -492,6 +514,55 @@ void glTexBufferRangeARB(GLenum target, GLenum internalFormat, GLuint buffer, GL
     glTexBufferRange(target, internalFormat, buffer, offset, size);
 }
 
+void glClearTexImage(GLuint texture,
+                     GLint level,
+                     GLenum format,
+                     GLenum type,
+                     const void * data) {
+    if(!current_context) return;
+    if(current_context->clear_texture) {
+        es3_functions.glClearTexImageEXT(texture, level, format, type, data);
+        return;
+    }
+    framebuffer_copier_t* copier = &current_context->framebuffer_copier;
+    if(!copier->ready) return;
+
+    es3_functions.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, copier->tempfb);
+    es3_functions.glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, level);
+    es3_functions.glClearBufferiv(GL_COLOR, 0, data);
+    es3_functions.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+}
+
+void glClearTexImageARB(GLuint texture, GLint level, GLenum format, GLenum type, const void * data) {
+    glClearTexImage(texture, level, format, type, data);
+}
+
+// TODO: implement this
+static bool user_warned = false;
+void glClearTexSubImage(uint texture, int level,
+                      int xoffset, int yoffset, int zoffset,
+                      GLsizei width, GLsizei height, GLsizei depth,
+                      GLenum format, GLenum type,
+                      const void * data) {
+    if(current_context && current_context->clear_texture) {
+        es3_functions.glClearTexSubImageEXT(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, type, data);
+        return;
+    }
+    if(!user_warned) {
+        printf("LTW: glClearTexSubImage emulation is currently not supported\n");
+        user_warned = true;
+
+    }
+}
+
+void glClearTexSubImageARB(uint texture, int level,
+                        int xoffset, int yoffset, int zoffset,
+                        GLsizei width, GLsizei height, GLsizei depth,
+                        GLenum format, GLenum type,
+                        const void * data) {
+    glClearTexSubImage(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, type, data);
+}
+
 static bool noerror;
 
 __attribute((constructor)) void init_noerror() {
@@ -499,6 +570,8 @@ __attribute((constructor)) void init_noerror() {
     debug = env_istrue("LTW_DEBUG");
     never_flush_buffers = env_istrue_d("LTW_NEVER_FLUSH_BUFFERS", true);
     coherent_dynamic_storage = env_istrue_d("LTW_COHERENT_DYNAMIC_STORAGE", true);
+    bool version_overriden = extract_gl_version(getenv("MESA_GL_VERSION_OVERRIDE"));
+    if(version_overriden) printf("LTW will override exposed OpenGL version to %u.%u\n", gl_major, gl_minor);
     if(!noerror) printf("LTW will NOT ignore GL errors. This may break mods, consider yourself warned.\n");
     if(coherent_dynamic_storage) printf("LTW will force dynamic storage buffers to be coherent.\n");
     if(debug) printf("LTW will allow GL_DEBUG_OUTPUT to be enabled. Expect massive logs.\n");
