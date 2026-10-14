@@ -533,6 +533,10 @@ void glClearTexImage(GLuint texture,
     es3_functions.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
+void glClearTexImageARB(GLuint texture, GLint level, GLenum format, GLenum type, const void * data) {
+    glClearTexImage(texture, level, format, type, data);
+}
+
 static bool noerror;
 
 __attribute((constructor)) void init_noerror() {
