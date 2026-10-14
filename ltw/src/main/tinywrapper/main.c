@@ -528,8 +528,8 @@ void glClearTexImage(GLuint texture,
     if(!copier->ready) return;
 
     es3_functions.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, copier->tempfb);
-    es3_functions.glFramebufferTexture2D(copier->tempfb, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, level);
-    es3_functions.glClearBufferiv(GL_COLOR, GL_COLOR_ATTACHMENT0, data);
+    es3_functions.glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, level);
+    es3_functions.glClearBufferiv(GL_COLOR, 0, data);
     es3_functions.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 }
 
