@@ -542,7 +542,11 @@ void glClearTexSubImage(uint texture, int level,
                       GLsizei width, GLsizei height, GLsizei depth,
                       GLenum format, GLenum type,
                       const void * data) {
-    printf("LTW: glClearTexSubImage is currently not supported\n");
+    if(current_context && current_context->clear_texture) {
+        es3_functions.glClearTexSubImageEXT(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, type, data);
+        return;
+    }
+    printf("LTW: glClearTexSubImage emulation is currently not supported\n");
 }
 
 void glClearTexSubImageARB(uint texture, int level,
@@ -550,7 +554,7 @@ void glClearTexSubImageARB(uint texture, int level,
                         GLsizei width, GLsizei height, GLsizei depth,
                         GLenum format, GLenum type,
                         const void * data) {
-    printf("LTW: glClearTexSubImage is currently not supported\n");
+    glClearTexSubImage(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, type, data);
 }
 
 static bool noerror;
