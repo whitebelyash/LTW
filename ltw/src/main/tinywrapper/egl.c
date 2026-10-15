@@ -8,9 +8,11 @@
 #include "string_utils.h"
 #include "env.h"
 #include <string.h>
+#include <pthread.h>
 
 thread_local context_t *current_context;
 unordered_map* context_map;
+static pthread_mutex_t context_map_lock = PTHREAD_MUTEX_INITIALIZER;
 
 EGLContext (*host_eglCreateContext)(EGLDisplay dpy, EGLConfig config, EGLContext share_context, const EGLint *attrib_list);
 EGLBoolean (*host_eglDestroyContext)(EGLDisplay dpy, EGLContext ctx);
@@ -64,6 +66,7 @@ static void free_context(context_t* tw_context) {
     unordered_map_free(tw_context->program_map);
     unordered_map_free(tw_context->framebuffer_map);
     unordered_map_free(tw_context->texture_swztrack_map);
+    if(tw_context->indirect_passes) free(tw_context->indirect_passes);
     if(tw_context->extensions_string != NULL) free(tw_context->extensions_string);
     if(tw_context->nextras != 0 && tw_context->extra_extensions_array != NULL) {
         for(int i = 0; i < tw_context->nextras; i++) {
@@ -74,10 +77,32 @@ static void free_context(context_t* tw_context) {
 }
 
 void init_extra_extensions(context_t* context, int* length) {
-    const char* es_extensions = (const char*)es3_functions.glGetString(GL_EXTENSIONS);
-    *length = (int)strlen(es_extensions);
-    context->extensions_string = malloc(*length + 1);
-    memcpy(context->extensions_string, es_extensions, *length+1);
+    // Built from the glGetStringi walk rather than glGetString(GL_EXTENSIONS), some
+    // drivers keep the two lists out of sync, and glGetStringi is the one glGetStringi()
+    // in main.c indexes back into.
+    int total = 1;
+    for(int i = 0; i < context->nextensions_es; i++) {
+        const char* ext = (const char*)es3_functions.glGetStringi(GL_EXTENSIONS, i);
+        if(ext == NULL) continue;
+        total += (int)strlen(ext) + 1;
+    }
+    char* string = malloc(total);
+    if(string == NULL) {
+        string = calloc(1, 1);
+        if(string == NULL) return;
+    }
+    char* cursor = string;
+    for(int i = 0; i < context->nextensions_es; i++) {
+        const char* ext = (const char*)es3_functions.glGetStringi(GL_EXTENSIONS, i);
+        if(ext == NULL) continue;
+        size_t ext_len = strlen(ext);
+        memcpy(cursor, ext, ext_len);
+        cursor += ext_len;
+        *cursor++ = ' ';
+    }
+    *cursor = 0;
+    context->extensions_string = string;
+    *length = (int)(cursor - string);
 }
 
 void add_extra_extension(context_t* context, int* length, const char* extension)  {
@@ -97,6 +122,7 @@ void add_extra_extension(context_t* context, int* length, const char* extension)
 }
 
 void fin_extra_extensions(context_t* context, int length) {
+    if(length < 2) return;
     if(context->extensions_string[length-2] != ' ') return;
     char* orig_string = context->extensions_string;
     context->extensions_string = realloc(context->extensions_string, length - 1);
@@ -123,8 +149,6 @@ void build_extension_string(context_t* context) {
     if(context->blending.available)
         add_extra_extension(context, &length, "GL_ARB_draw_buffers_blend");
     add_extra_extension(context, &length, "GL_ARB_clear_texture");
-    // Used by Minecraft for the GPU usage counter (see Blaze3D TimerQuery)
-    add_extra_extension(context, &length, "GL_ARB_timer_query");
     if(context->multidraw_indirect) {
         add_extra_extension(context, &length, "GL_ARB_draw_indirect"); // Well, duh, we already should support it
         add_extra_extension(context, &length, "GL_ARB_multi_draw_indirect");
@@ -245,13 +269,17 @@ EGLContext eglCreateContext(EGLDisplay dpy, EGLConfig config, EGLContext share_c
         host_eglDestroyContext(dpy, phys_context);
         return EGL_NO_CONTEXT;
     }
+    pthread_mutex_lock(&context_map_lock);
     unordered_map_put(context_map, phys_context, tw_context);
+    pthread_mutex_unlock(&context_map_lock);
     return phys_context;
 }
 
 EGLBoolean eglDestroyContext (EGLDisplay dpy, EGLContext ctx) {
     if(!host_eglDestroyContext(dpy, ctx)) return EGL_FALSE;
+    pthread_mutex_lock(&context_map_lock);
     context_t* old_ctx = unordered_map_remove(context_map, ctx);
+    pthread_mutex_unlock(&context_map_lock);
     free_context(old_ctx);
     free(old_ctx);
     return EGL_TRUE;
@@ -263,7 +291,11 @@ EGLBoolean eglMakeCurrent (EGLDisplay dpy, EGLSurface draw, EGLSurface read, EGL
         current_context = NULL;
         return EGL_TRUE;
     }
+    // Only the lookup is locked. init_incontext below makes a pile of driver calls
+    // and must not run with the map locked.
+    pthread_mutex_lock(&context_map_lock);
     context_t* tw_context = unordered_map_get(context_map, ctx);
+    pthread_mutex_unlock(&context_map_lock);
     if(tw_context == NULL) {
         printf("TinywrapperEGL: Failed to find context %p\n", ctx);
         abort();
