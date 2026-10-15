@@ -20,29 +20,62 @@ void glMultiDrawArrays( GLenum mode, GLint *first, GLsizei *count, GLsizei primc
 void glMultiDrawElements( GLenum mode, GLsizei *count, GLenum type, const void * const *indices, GLsizei primcount )
 {
     if(!current_context) return;
-    GLint elementbuffer;
+    GLint typebytes = type_bytes(type);
+    if(typebytes <= 0 || primcount <= 0) return;
+    GLint elementbuffer, copywritebuffer;
     es3_functions.glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &elementbuffer);
+    es3_functions.glGetIntegerv(GL_COPY_WRITE_BUFFER_BINDING, &copywritebuffer);
     es3_functions.glBindBuffer(GL_COPY_WRITE_BUFFER, current_context->multidraw_element_buffer);
-    GLsizei total = 0, offset = 0, typebytes = type_bytes(type);
+    GLsizeiptr total = 0;
     for (GLsizei i = 0; i < primcount; i++) {
-        total += count[i];
+        if(count[i] > 0) total += count[i];
     }
-    es3_functions.glBufferData(GL_COPY_WRITE_BUFFER, total*typebytes, NULL, GL_STREAM_DRAW);
-    for (GLsizei i = 0; i < primcount; i++) {
-        GLsizei icount = count[i];
-        if(icount == 0) continue;
-        icount *= typebytes;
-        if(elementbuffer != 0) {
-            es3_functions.glCopyBufferSubData(GL_ELEMENT_ARRAY_BUFFER, GL_COPY_WRITE_BUFFER, (GLintptr)indices[i], offset, icount);
-        }else {
-            es3_functions.glBufferSubData(GL_COPY_WRITE_BUFFER, offset, icount, indices[i]);
+    if(total <= 0) {
+        es3_functions.glBindBuffer(GL_COPY_WRITE_BUFFER, (GLuint)copywritebuffer);
+        return;
+    }
+    GLsizeiptr offset = 0;
+    // Only respecify the store when it outgrew the one we already have, otherwise
+    // every call orphans the buffer and the driver allocates a new one.
+    dynamic_buffer_upload(GL_COPY_WRITE_BUFFER, &current_context->multidraw_element_buffer_capacity, total*typebytes, NULL);
+    if(elementbuffer != 0) {
+        for (GLsizei i = 0; i < primcount; i++) {
+            GLsizei icount = count[i];
+            if(icount <= 0) continue;
+            es3_functions.glCopyBufferSubData(GL_ELEMENT_ARRAY_BUFFER, GL_COPY_WRITE_BUFFER, (GLintptr)indices[i], offset, icount*typebytes);
+            offset += icount*typebytes;
         }
-        offset += icount;
+    } else {
+        // Client side indices that happen to sit next to each other in memory can go
+        // out in one upload instead of one call per primitive.
+        const char* run_start = NULL;
+        size_t run_length = 0;
+        for (GLsizei i = 0; i < primcount; i++) {
+            GLsizei icount = count[i];
+            if(icount <= 0) continue;
+            const char* pointer = (const char*)indices[i];
+            if(run_start != NULL && pointer == run_start + run_length) {
+                run_length += (size_t)icount * typebytes;
+                continue;
+            }
+            if(run_start != NULL) {
+                es3_functions.glBufferSubData(GL_COPY_WRITE_BUFFER, offset, (GLsizeiptr)run_length, run_start);
+                offset += (GLsizeiptr)run_length;
+            }
+            run_start = pointer;
+            run_length = (size_t)icount * typebytes;
+        }
+        if(run_start != NULL) {
+            es3_functions.glBufferSubData(GL_COPY_WRITE_BUFFER, offset, (GLsizeiptr)run_length, run_start);
+            offset += (GLsizeiptr)run_length;
+        }
     }
     es3_functions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, current_context->multidraw_element_buffer);
-    es3_functions.glDrawElements(mode, total, type, 0);
-    if(elementbuffer != 0) es3_functions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
-
+    es3_functions.glDrawElements(mode, (GLsizei)total, type, 0);
+    // Both bindings have to go back, otherwise client side draws after this would
+    // read our index buffer instead of the app's pointer.
+    es3_functions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, (GLuint)elementbuffer);
+    es3_functions.glBindBuffer(GL_COPY_WRITE_BUFFER, (GLuint)copywritebuffer);
 }
 
 void glMultiDrawElementsIndirect(GLenum mode, GLenum type, const void *indirect, GLsizei drawcount, GLsizei stride){
