@@ -153,6 +153,9 @@ void build_extension_string(context_t* context) {
         add_extra_extension(context, &length, "GL_ARB_draw_indirect"); // Well, duh, we already should support it
         add_extra_extension(context, &length, "GL_ARB_multi_draw_indirect");
     }
+    // Emulated in multidraw.c on top of multi draw indirect, or on plain draws
+    if(!env_istrue("LTW_HIDE_MULTI_DRAW"))
+        add_extra_extension(context, &length, "GL_EXT_multi_draw");
     // Additionally required by Minecraft for multidraw indirect rendering path
     // Only ANGLE exposes this extension from what I know
     if(context->base_instance) {
@@ -245,6 +248,16 @@ static void find_esversion(context_t* context) {
 
 void basevertex_init(context_t* context);
 void buffer_copier_init(context_t* context);
+static void find_indirect_strides(context_t* tw_context) {
+    // ES 3.0 DrawArraysIndirectCommand is {count, instanceCount, firstIndex}.
+    // GL_EXT_base_instance widens it with baseInstance.
+    tw_context->indirect_arrays_stride = tw_context->base_instance
+        ? INDIRECT_ARRAYS_STRIDE_BASE_INSTANCE : 3 * sizeof(GLuint);
+    // ES 3.0 DrawElementsIndirectCommand is {count, instanceCount, firstIndex,
+    // reservedMustBeZero}. baseVertex widens it in its place.
+    tw_context->indirect_elements_stride = tw_context->drawelementsbasevertex
+        ? INDIRECT_ELEMENTS_STRIDE_BASE_VERTEX : 4 * sizeof(GLuint);
+}
 static void init_incontext(context_t* tw_context) {
     es3_functions.glGetIntegerv(GL_MAX_TEXTURE_SIZE, &tw_context->maxTextureSize);
     es3_functions.glGetIntegerv(GL_MAX_DRAW_BUFFERS, &tw_context->max_drawbuffers);
@@ -254,10 +267,13 @@ static void init_incontext(context_t* tw_context) {
     }
 
     find_esversion(tw_context);
+    find_indirect_strides(tw_context);
 
     basevertex_init(tw_context);
     buffer_copier_init(tw_context);
     es3_functions.glGenBuffers(1, &tw_context->multidraw_element_buffer);
+    if(!tw_context->multidraw_indirect)
+        printf("LTW: Emulating multi draw indirect with plain draws\n");
 }
 
 EGLContext eglCreateContext(EGLDisplay dpy, EGLConfig config, EGLContext share_context, const EGLint *attrib_list) {

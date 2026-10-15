@@ -27,6 +27,14 @@ typedef struct {
     GLuint reservedMustBeZero;
 } indirect_pass_t;
 
+/*
+ * Strides for the host's indirect command structs. ES 3.0 leaves baseVertex and
+ * baseInstance out of them, the extensions that add those fields also widen the
+ * structs, so the layout has to follow what the host actually expects.
+ */
+#define INDIRECT_ARRAYS_STRIDE_BASE_INSTANCE 16
+#define INDIRECT_ELEMENTS_STRIDE_BASE_VERTEX 20
+
 typedef struct {
     bool ready;
     GLuint indirectRenderBuffer;
@@ -72,6 +80,12 @@ typedef struct {
 } framebuffer_copier_t;
 
 typedef struct {
+    bool ready;
+    GLuint buffer;
+    GLsizeiptr capacity;
+} multidraw_renderer_t;
+
+typedef struct {
     GLenum original_swizzle[4];
     GLboolean goofy_byte_order;
     GLboolean upload_bgra;
@@ -82,11 +96,13 @@ typedef struct {
     bool context_rdy;
     bool es31, es32, buffer_storage, buffer_texture_ext, multidraw_indirect, timer_query, base_instance, clear_texture;
     GLint shader_version;
+    size_t indirect_arrays_stride, indirect_elements_stride;
     basevertex_renderer_t basevertex;
     PFNGLDRAWELEMENTSBASEVERTEXPROC drawelementsbasevertex;
     blending_functions_t blending;
     GLuint multidraw_element_buffer;
     GLsizeiptr multidraw_element_buffer_capacity;
+    multidraw_renderer_t multidraw_arrays, multidraw_elements;
     indirect_pass_t* indirect_passes;
     size_t indirect_passes_capacity;
     framebuffer_copier_t framebuffer_copier;

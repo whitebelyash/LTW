@@ -18,6 +18,18 @@ void glMultiDrawElementsBaseVertex( 	GLenum mode,
                                        const void * const *indices,
                                        GLsizei drawcount,
                                        const GLint *basevertex);
+
+void glMultiDrawArraysEXT(GLenum mode, const GLint *first, const GLsizei *count, GLsizei drawcount);
+void glMultiDrawArraysInstancedEXT(GLenum mode, const GLint *first, const GLsizei *count,
+                                   GLsizei instancecount, GLsizei drawcount);
+void glMultiDrawElementsEXT(GLenum mode, const GLsizei *count, GLenum type,
+                            const void * const *indices, GLsizei drawcount);
+void glMultiDrawElementsInstancedEXT(GLenum mode, const GLsizei *count, GLenum type,
+                                     const void * const *indices, GLsizei instancecount, GLsizei drawcount);
+void glMultiDrawElementsIndirectARB(GLenum mode, GLenum type, const void *indirect,
+                                    GLsizei drawcount, GLsizei stride);
+void glMultiDrawArraysIndirectARB(GLenum mode, const void *indirect, GLsizei drawcount, GLsizei stride);
+
 void glBindFragDataLocation(GLuint program,
                             GLuint colorNumber,
                             const char * name);
@@ -138,5 +150,11 @@ GLESOVERRIDE(glMapBufferRange)
 GLESOVERRIDE(glFlushMappedBufferRange)
 GLESOVERRIDE(glMultiDrawElementsIndirect)
 GLESOVERRIDE(glMultiDrawArraysIndirect)
+GLESOVERRIDE(glMultiDrawElementsIndirectARB)
+GLESOVERRIDE(glMultiDrawArraysIndirectARB)
+GLESOVERRIDE(glMultiDrawArraysEXT)
+GLESOVERRIDE(glMultiDrawElementsEXT)
+GLESOVERRIDE(glMultiDrawArraysInstancedEXT)
+GLESOVERRIDE(glMultiDrawElementsInstancedEXT)
 GLESOVERRIDE(glClearTexImage)
 GLESOVERRIDE(glClearTexSubImage)
