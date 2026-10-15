@@ -20,8 +20,17 @@
 #define MAX_TEXTARGETS 8
 
 typedef struct {
+    GLuint count;
+    GLuint instanceCount;
+    GLuint firstIndex;
+    GLint baseVertex;
+    GLuint reservedMustBeZero;
+} indirect_pass_t;
+
+typedef struct {
     bool ready;
     GLuint indirectRenderBuffer;
+    GLsizeiptr indirectRenderBufferCapacity;
 } basevertex_renderer_t;
 
 typedef struct {
@@ -75,6 +84,9 @@ typedef struct {
     PFNGLDRAWELEMENTSBASEVERTEXPROC drawelementsbasevertex;
     blending_functions_t blending;
     GLuint multidraw_element_buffer;
+    GLsizeiptr multidraw_element_buffer_capacity;
+    indirect_pass_t* indirect_passes;
+    size_t indirect_passes_capacity;
     framebuffer_copier_t framebuffer_copier;
     unordered_map* shader_map;
     unordered_map* program_map;
@@ -85,8 +97,11 @@ typedef struct {
     GLint max_drawbuffers;
     GLuint bound_buffers[MAX_BOUND_BUFFERS];
     GLuint program;
+    GLuint bound_textures[MAX_TEXTARGETS];
     GLuint draw_framebuffer;
     GLuint read_framebuffer;
+    framebuffer_t* draw_framebuffer_obj;
+    framebuffer_t* read_framebuffer_obj;
     char* extensions_string;
     size_t nextras;
     int nextensions_es;

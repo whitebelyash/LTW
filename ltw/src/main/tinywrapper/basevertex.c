@@ -9,16 +9,9 @@
 #include "egl.h"
 #include "main.h"
 
-typedef struct {
-    GLuint count;
-    GLuint instanceCount;
-    GLuint firstIndex;
-    GLint baseVertex;
-    GLuint reservedMustBeZero;
-} indirect_pass_t;
-
 void basevertex_init(context_t* context) {
     basevertex_renderer_t *renderer = &context->basevertex;
+    renderer->indirectRenderBufferCapacity = 0;
     if(context->drawelementsbasevertex != NULL) {
         printf("LTW: BaseVertex render calls will use the host driver implementation\n");
         return;
@@ -45,8 +38,28 @@ GLint type_bytes(GLenum type) {
     }
 }
 
-static void restore_state(GLuint element_buffer) {
-    es3_functions.glBindBuffer(GL_DRAW_INDIRECT_BUFFER, current_context->bound_buffers[get_buffer_index(GL_DRAW_INDIRECT_BUFFER)]);
+static size_t round_up_capacity(GLsizeiptr size) {
+    size_t capacity = 64;
+    while(capacity < (size_t)size) capacity <<= 1;
+    return capacity;
+}
+
+void dynamic_buffer_upload(GLenum target, GLsizeiptr* capacity, GLsizeiptr size, const void* data) {
+    if(size <= 0) return;
+    if(size > *capacity) {
+        // Reallocating is what we are trying to avoid here, so only do it when
+        // the request genuinely outgrew what we already have.
+        size_t new_capacity = round_up_capacity(size);
+        es3_functions.glBufferData(target, (GLsizeiptr)new_capacity, NULL, GL_STREAM_DRAW);
+        *capacity = (GLsizeiptr)new_capacity;
+    }
+    if(data != NULL) es3_functions.glBufferSubData(target, 0, size, data);
+}
+
+static void restore_state(basevertex_renderer_t* renderer) {
+    GLuint previous = current_context->bound_buffers[get_buffer_index(GL_DRAW_INDIRECT_BUFFER)];
+    if(previous == renderer->indirectRenderBuffer) return;
+    es3_functions.glBindBuffer(GL_DRAW_INDIRECT_BUFFER, previous);
 }
 
 void glDrawElementsBaseVertex(GLenum mode, GLsizei count, GLenum type, const void *indices, GLint basevertex) {
@@ -76,9 +89,9 @@ void glDrawElementsBaseVertex(GLenum mode, GLsizei count, GLenum type, const voi
     indirect_pass.instanceCount = 1;
     indirect_pass.reservedMustBeZero = 0;
     es3_functions.glBindBuffer(GL_DRAW_INDIRECT_BUFFER, renderer->indirectRenderBuffer);
-    es3_functions.glBufferData(GL_DRAW_INDIRECT_BUFFER, sizeof(indirect_pass_t), &indirect_pass, GL_STREAM_DRAW);
+    dynamic_buffer_upload(GL_DRAW_INDIRECT_BUFFER, &renderer->indirectRenderBufferCapacity, sizeof(indirect_pass_t), &indirect_pass);
     es3_functions.glDrawElementsIndirect(mode, type, 0);
-    restore_state(elementbuffer);
+    restore_state(renderer);
 }
 
 
@@ -106,26 +119,41 @@ void glMultiDrawElementsBaseVertex(GLenum mode,
         return;
     }
     GLint typeBytes = type_bytes(type);
-    indirect_pass_t indirect_passes[drawcount];
+    if(typeBytes <= 0 || drawcount <= 0) return;
     for(GLsizei i = 0; i < drawcount; i++) {
         uintptr_t indicesPointer = (uintptr_t)indices[i];
         if(indicesPointer % typeBytes != 0) {
             printf("LTW: misaligned base vertex draw not supported (draw %i)\n", i);
             return;
         }
+    }
+    // Validate first, then size the scratch buffer once. This used to be a VLA
+    // sized by a caller supplied drawcount.
+    size_t needed = (size_t)drawcount * sizeof(indirect_pass_t);
+    if(current_context->indirect_passes_capacity < needed) {
+        indirect_pass_t* passes = realloc(current_context->indirect_passes, needed);
+        if(passes == NULL) {
+            printf("LTW: out of memory building base vertex draws\n");
+            return;
+        }
+        current_context->indirect_passes = passes;
+        current_context->indirect_passes_capacity = needed;
+    }
+    indirect_pass_t* indirect_passes = current_context->indirect_passes;
+    for(GLsizei i = 0; i < drawcount; i++) {
         indirect_pass_t* pass = &indirect_passes[i];
         pass->count = count[i];
-        pass->firstIndex = indicesPointer / typeBytes;
+        pass->firstIndex = (uintptr_t)indices[i] / typeBytes;
         pass->baseVertex = basevertex[i];
         pass->instanceCount = 1;
         pass->reservedMustBeZero = 0;
     }
     es3_functions.glBindBuffer(GL_DRAW_INDIRECT_BUFFER, renderer->indirectRenderBuffer);
-    es3_functions.glBufferData(GL_DRAW_INDIRECT_BUFFER, (long)sizeof(indirect_pass_t) * drawcount, indirect_passes, GL_STREAM_DRAW);
+    dynamic_buffer_upload(GL_DRAW_INDIRECT_BUFFER, &renderer->indirectRenderBufferCapacity, (GLsizeiptr)needed, indirect_passes);
     if(current_context->multidraw_indirect) {
         es3_functions.glMultiDrawElementsIndirectEXT(mode, type, 0, drawcount, 0);
     } else for(GLsizei i = 0; i < drawcount; i++) {
         es3_functions.glDrawElementsIndirect(mode, type, (void*)(sizeof(indirect_pass_t) * i));
     }
-    restore_state(elementbuffer);
+    restore_state(renderer);
 }
