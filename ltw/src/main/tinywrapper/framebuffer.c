@@ -10,13 +10,12 @@
 #include <stdio.h>
 
 static framebuffer_t* get_framebuffer(GLenum target) {
-    GLuint fb;
     switch (target) {
         case GL_FRAMEBUFFER:
-        case GL_DRAW_FRAMEBUFFER: fb = current_context->draw_framebuffer; break;
-        case GL_READ_FRAMEBUFFER: fb = current_context->read_framebuffer; break;
+        case GL_DRAW_FRAMEBUFFER: return current_context->draw_framebuffer_obj;
+        case GL_READ_FRAMEBUFFER: return current_context->read_framebuffer_obj;
     }
-    return unordered_map_get(current_context->framebuffer_map, (void*)fb);
+    return NULL;
 }
 
 static GLuint get_attachment_idx(GLenum attachment) {
@@ -280,6 +279,10 @@ void glDeleteFramebuffers(GLsizei n, const GLuint* framebuffers) {
     for(GLsizei i = 0; i < n; i++) {
         fb = unordered_map_remove(current_context->framebuffer_map, (void*)framebuffers[i]);
         if(fb == NULL) continue;
+        // A bound framebuffer stays bound in GL, but the object behind the name is
+        // gone, so the cached pointer has to go with it.
+        if(current_context->draw_framebuffer == framebuffers[i]) current_context->draw_framebuffer_obj = NULL;
+        if(current_context->read_framebuffer == framebuffers[i]) current_context->read_framebuffer_obj = NULL;
         free(fb);
     }
 }
@@ -287,15 +290,20 @@ void glDeleteFramebuffers(GLsizei n, const GLuint* framebuffers) {
 void glBindFramebuffer(GLenum target, GLuint framebuffer) {
     if(!current_context) return;
     es3_functions.glBindFramebuffer(target, framebuffer);
+    framebuffer_t* fb = unordered_map_get(current_context->framebuffer_map, (void*)framebuffer);
     switch (target) {
         case GL_FRAMEBUFFER:
             current_context->read_framebuffer = current_context->draw_framebuffer = framebuffer;
+            current_context->read_framebuffer_obj = fb;
+            current_context->draw_framebuffer_obj = fb;
             break;
         case GL_READ_FRAMEBUFFER:
             current_context->read_framebuffer = framebuffer;
+            current_context->read_framebuffer_obj = fb;
             break;
         case GL_DRAW_FRAMEBUFFER:
             current_context->draw_framebuffer = framebuffer;
+            current_context->draw_framebuffer_obj = fb;
             break;
     }
 }
