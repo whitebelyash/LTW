@@ -10,5 +10,6 @@
 int get_buffer_index(GLenum buffer);
 int get_base_buffer_index(GLenum buffer);
 GLenum get_base_buffer_enum(int buffer_index);
+int get_textarget_slot(GLenum target);
 
 #endif //POJAVLAUNCHER_MAIN_H

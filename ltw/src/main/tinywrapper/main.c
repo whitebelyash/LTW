@@ -120,6 +120,44 @@ INTERNAL GLenum get_textarget_query_param(GLenum target) {
     }
 }
 
+/* Slot into current_context->bound_textures, sharing one slot per binding point. */
+INTERNAL int get_textarget_slot(GLenum target) {
+    switch (target) {
+        case GL_TEXTURE_2D:
+            return 0;
+        case GL_TEXTURE_2D_MULTISAMPLE:
+            return 1;
+        case GL_TEXTURE_2D_MULTISAMPLE_ARRAY:
+            return 2;
+        case GL_TEXTURE_3D:
+            return 3;
+        case GL_TEXTURE_2D_ARRAY:
+            return 4;
+        case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
+        case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
+        case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
+        case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
+        case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
+        case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
+        case GL_TEXTURE_CUBE_MAP:
+            return 5;
+        case GL_TEXTURE_CUBE_MAP_ARRAY:
+            return 6;
+        case GL_TEXTURE_BUFFER:
+            return 7;
+        default:
+            return -1;
+    }
+}
+
+void glBindTexture(GLenum target, GLuint texture) {
+    if(!current_context) return;
+    es3_functions.glBindTexture(target, texture);
+    int slot = get_textarget_slot(target);
+    if(slot < 0) return;
+    current_context->bound_textures[slot] = texture;
+}
+
 static int inline nlevel(int size, int level) {
     if(size) {
         size>>=level;
@@ -448,7 +486,6 @@ void glGetIntegerv(GLenum pname, GLint* data) {
         case GL_NUM_EXTENSIONS:
             es3_functions.glGetIntegerv(pname, data);
             (*data) += current_context->nextras;
-            printf("GL_NUM_EXTENSIONS: %i\n", (*data));
             return;
         case GL_MAX_COLOR_ATTACHMENTS:
             *data = MAX_FBTARGETS;
@@ -530,7 +567,7 @@ void glClearTexImage(GLuint texture,
     es3_functions.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, copier->tempfb);
     es3_functions.glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, level);
     es3_functions.glClearBufferiv(GL_COLOR, 0, data);
-    es3_functions.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    es3_functions.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, current_context->draw_framebuffer);
 }
 
 void glClearTexImageARB(GLuint texture, GLint level, GLenum format, GLenum type, const void * data) {

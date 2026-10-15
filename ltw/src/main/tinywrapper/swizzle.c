@@ -6,6 +6,7 @@
 
 #include "proc.h"
 #include "egl.h"
+#include "main.h"
 #include <string.h>
 #include "libraryinternal.h"
 //#include <GL/glext.h>
@@ -29,17 +30,14 @@ static void swizzle_process_endianness(GLenum* swizzle) {
 }
 
 static texture_swizzle_track_t* get_swizzle_track(GLenum target) {
-    GLint texture;
-    GLenum getter = get_textarget_query_param(target);
-    if(getter == 0) return NULL;
-    es3_functions.glGetIntegerv(getter, &texture);
+    int slot = get_textarget_slot(target);
+    if(slot < 0) return NULL;
+    GLuint texture = current_context->bound_textures[slot];
     texture_swizzle_track_t* track = unordered_map_get(current_context->texture_swztrack_map, (void*)texture);
     if(track == NULL) {
         track = malloc(sizeof(texture_swizzle_track_t));
-        es3_functions.glGetTexParameteriv(target, GL_TEXTURE_SWIZZLE_R, (GLint*)&track->original_swizzle[0]);
-        es3_functions.glGetTexParameteriv(target, GL_TEXTURE_SWIZZLE_G, (GLint*)&track->original_swizzle[1]);
-        es3_functions.glGetTexParameteriv(target, GL_TEXTURE_SWIZZLE_B, (GLint*)&track->original_swizzle[2]);
-        es3_functions.glGetTexParameteriv(target, GL_TEXTURE_SWIZZLE_A, (GLint*)&track->original_swizzle[3]);
+        // One call for all four components instead of four separate queries.
+        es3_functions.glGetTexParameteriv(target, GL_TEXTURE_SWIZZLE_RGBA, (GLint*)track->original_swizzle);
         unordered_map_put(current_context->texture_swztrack_map, (void*)texture, track);
     }
     return track;
@@ -50,10 +48,8 @@ static void apply_swizzles(GLenum target, texture_swizzle_track_t* track) {
     memcpy(new_swizzle, track->original_swizzle, 4 * sizeof(GLenum));
     if(track->goofy_byte_order) swizzle_process_endianness(new_swizzle);
     if(track->upload_bgra) swizzle_process_bgra(new_swizzle);
-    es3_functions.glTexParameteri(target, GL_TEXTURE_SWIZZLE_R, new_swizzle[0]);
-    es3_functions.glTexParameteri(target, GL_TEXTURE_SWIZZLE_G, new_swizzle[1]);
-    es3_functions.glTexParameteri(target, GL_TEXTURE_SWIZZLE_B, new_swizzle[2]);
-    es3_functions.glTexParameteri(target, GL_TEXTURE_SWIZZLE_A, new_swizzle[3]);
+    // Same trick on the way out, the driver sees a single state change.
+    es3_functions.glTexParameteriv(target, GL_TEXTURE_SWIZZLE_RGBA, (const GLint*)new_swizzle);
 }
 
 INTERNAL void swizzle_process_upload(GLenum target, GLenum* format, GLenum* type) {
