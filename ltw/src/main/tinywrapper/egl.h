@@ -12,7 +12,7 @@
 #include "proc.h"
 #include "unordered_map/unordered_map.h"
 
-#define MAX_BOUND_BUFFERS 9
+#define MAX_BOUND_BUFFERS 10
 #define MAX_BOUND_BASEBUFFERS 4
 #define MAX_DRAWBUFFERS 8
 #define MAX_FBTARGETS 8
@@ -67,6 +67,8 @@ typedef struct {
     GLuint destfb;
     void* depthData;
     GLsizei depthWidth, depthHeight;
+    GLsizei tempWidth, tempHeight;
+    bool tempStorage;
 } framebuffer_copier_t;
 
 typedef struct {

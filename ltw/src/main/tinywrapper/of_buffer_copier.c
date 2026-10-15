@@ -5,20 +5,21 @@
  */
 #include "proc.h"
 #include "egl.h"
+#include "main.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include "swizzle.h"
 void buffer_copier_init(context_t* context) {
     framebuffer_copier_t* copier = &context->framebuffer_copier;
     while(es3_functions.glGetError() != 0) {}
-    es3_functions.glGenTextures(1, &copier->temp_texture);
     es3_functions.glGenFramebuffers(1, &copier->tempfb);
     es3_functions.glGenFramebuffers(1, &copier->destfb);
-    es3_functions.glBindTexture(GL_TEXTURE_2D, copier->temp_texture);
-    es3_functions.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    es3_functions.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    es3_functions.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    es3_functions.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    // The temp texture and its storage are created lazily on the first depth
+    // readback, once the readback size is known.
+    copier->temp_texture = 0;
+    copier->tempWidth = 0;
+    copier->tempHeight = 0;
+    copier->tempStorage = false;
     GLenum error = es3_functions.glGetError();
     if(error != 0) {
         printf("LTW: error while initializing buffer-copier: %x\n", error);
@@ -30,11 +31,30 @@ void buffer_copier_init(context_t* context) {
 static void buffer_copier_store(GLint x, GLint y, GLsizei w, GLsizei h) {
     framebuffer_copier_t* copier = &current_context->framebuffer_copier;
     if(!copier->ready) return;
-    GLint current_texbind;
-    es3_functions.glGetIntegerv(GL_TEXTURE_BINDING_2D, &current_texbind);
+    GLuint current_texbind = current_context->bound_textures[GL_TEXTURE_2D_SLOT];
+    // Immutable storage, so it is only allocated once per size instead of reallocating
+    // the store on every depth readback. Respecifying immutable storage is an error,
+    // hence the fresh texture object when the readback size changes.
+    if(copier->tempWidth != w || copier->tempHeight != h) {
+        if(copier->temp_texture != 0) es3_functions.glDeleteTextures(1, &copier->temp_texture);
+        es3_functions.glGenTextures(1, &copier->temp_texture);
+        copier->tempWidth = w;
+        copier->tempHeight = h;
+        copier->tempStorage = false;
+    }
     es3_functions.glBindTexture(GL_TEXTURE_2D, copier->temp_texture);
-    es3_functions.glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, w, h, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-    es3_functions.glBindTexture(GL_TEXTURE_2D, current_texbind);
+    if(copier->tempStorage == false) {
+        // Parameters only need setting once per texture object.
+        es3_functions.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        es3_functions.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        es3_functions.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        es3_functions.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        es3_functions.glTexStorage2D(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT32F, w, h);
+        copier->tempStorage = true;
+    }
+    if(current_texbind != copier->temp_texture) {
+        es3_functions.glBindTexture(GL_TEXTURE_2D, current_texbind);
+    }
     es3_functions.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, copier->tempfb);
     es3_functions.glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, copier->temp_texture, 0);
     es3_functions.glBlitFramebuffer(x, y, x+w, y+h, 0, 0, w, h, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
@@ -44,10 +64,9 @@ static void buffer_copier_store(GLint x, GLint y, GLsizei w, GLsizei h) {
 static void buffer_copier_release(GLenum target, GLint level, GLint x, GLint y, GLsizei w, GLsizei h) {
     framebuffer_copier_t* copier = &current_context->framebuffer_copier;
     if(!copier->ready) return;
-    GLint current_texbind;
-    GLenum target_query = get_textarget_query_param(target);
-    if(target_query == GL_NONE) return;
-    es3_functions.glGetIntegerv(target_query, &current_texbind);
+    int slot = get_textarget_slot(target);
+    if(slot < 0) return;
+    GLuint current_texbind = current_context->bound_textures[slot];
     es3_functions.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, copier->destfb);
     es3_functions.glBindFramebuffer(GL_READ_FRAMEBUFFER, copier->tempfb);
     es3_functions.glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, target, current_texbind, level);
@@ -66,8 +85,9 @@ void glGetTexImage( 	GLenum target,
     if(!current_context->es31) goto unsupported_esver;
     if(format != GL_RGBA && format != GL_RGBA_INTEGER && type != GL_UNSIGNED_BYTE && type != GL_UNSIGNED_INT && type != GL_INT && type != GL_FLOAT) goto unsupported;
     framebuffer_copier_t* copier = &current_context->framebuffer_copier;
-    GLint texture;
-    es3_functions.glGetIntegerv(get_textarget_query_param(target), &texture);
+    int slot = get_textarget_slot(target);
+    if(slot < 0) return;
+    GLuint texture = current_context->bound_textures[slot];
     es3_functions.glBindFramebuffer(GL_READ_FRAMEBUFFER, copier->tempfb);
     es3_functions.glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, target, texture, level);
     GLint w, h;
@@ -139,8 +159,9 @@ void texture_blit_framebuffer(GLenum target,
         fb_blit_bit = GL_COLOR_BUFFER_BIT;
     }
 
-    GLint texture;
-    es3_functions.glGetIntegerv(get_textarget_query_param(target), &texture);
+    int slot = get_textarget_slot(target);
+    if(slot < 0) return;
+    GLuint texture = current_context->bound_textures[slot];
     es3_functions.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, copier->destfb);
     es3_functions.glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, fb_attachment, target, texture, level);
     es3_functions.glBlitFramebuffer(x, y, width+x, height+y, xoffset, yoffset, width+xoffset, height+yoffset, fb_blit_bit, GL_NEAREST);
