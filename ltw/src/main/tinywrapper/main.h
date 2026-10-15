@@ -12,4 +12,7 @@ int get_base_buffer_index(GLenum buffer);
 GLenum get_base_buffer_enum(int buffer_index);
 int get_textarget_slot(GLenum target);
 
+#define GL_TEXTURE_2D_SLOT 0
+#define GL_ELEMENT_ARRAY_BUFFER_SLOT 9
+
 #endif //POJAVLAUNCHER_MAIN_H

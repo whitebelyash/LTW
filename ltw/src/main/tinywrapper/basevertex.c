@@ -70,8 +70,7 @@ void glDrawElementsBaseVertex(GLenum mode, GLsizei count, GLenum type, const voi
     }
     basevertex_renderer_t *renderer = &current_context->basevertex;
     if(!renderer->ready) return;
-    GLint elementbuffer;
-    es3_functions.glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &elementbuffer);
+    GLuint elementbuffer = current_context->bound_buffers[GL_ELEMENT_ARRAY_BUFFER_SLOT];
     if(elementbuffer == 0) {
         // I am not bothered enough to implement this.
         printf("LTW: Base vertex draws without element buffer are not supported\n");
@@ -111,8 +110,7 @@ void glMultiDrawElementsBaseVertex(GLenum mode,
     }
     basevertex_renderer_t *renderer = &current_context->basevertex;
     if(!renderer->ready) return;
-    GLint elementbuffer;
-    es3_functions.glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &elementbuffer);
+    GLuint elementbuffer = current_context->bound_buffers[GL_ELEMENT_ARRAY_BUFFER_SLOT];
     if(elementbuffer == 0) {
         // I am not bothered enough to implement this.
         printf("LTW: Base vertex draws without element buffer are not supported\n");

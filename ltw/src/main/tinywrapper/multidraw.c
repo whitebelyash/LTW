@@ -7,6 +7,7 @@
 #include <proc.h>
 #include <egl.h>
 #include "basevertex.h"
+#include "main.h"
 void glMultiDrawArrays( GLenum mode, GLint *first, GLsizei *count, GLsizei primcount )
 {
     // We'd need to merge each buffer attached to the VBO to properly achieve this. Nuh-uh. Aint no way im doin allat
@@ -22,16 +23,15 @@ void glMultiDrawElements( GLenum mode, GLsizei *count, GLenum type, const void *
     if(!current_context) return;
     GLint typebytes = type_bytes(type);
     if(typebytes <= 0 || primcount <= 0) return;
-    GLint elementbuffer, copywritebuffer;
-    es3_functions.glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &elementbuffer);
-    es3_functions.glGetIntegerv(GL_COPY_WRITE_BUFFER_BINDING, &copywritebuffer);
+    GLuint elementbuffer = current_context->bound_buffers[GL_ELEMENT_ARRAY_BUFFER_SLOT];
+    GLuint copywritebuffer = current_context->bound_buffers[get_buffer_index(GL_COPY_WRITE_BUFFER)];
     es3_functions.glBindBuffer(GL_COPY_WRITE_BUFFER, current_context->multidraw_element_buffer);
     GLsizeiptr total = 0;
     for (GLsizei i = 0; i < primcount; i++) {
         if(count[i] > 0) total += count[i];
     }
     if(total <= 0) {
-        es3_functions.glBindBuffer(GL_COPY_WRITE_BUFFER, (GLuint)copywritebuffer);
+        es3_functions.glBindBuffer(GL_COPY_WRITE_BUFFER, copywritebuffer);
         return;
     }
     GLsizeiptr offset = 0;
@@ -74,8 +74,8 @@ void glMultiDrawElements( GLenum mode, GLsizei *count, GLenum type, const void *
     es3_functions.glDrawElements(mode, (GLsizei)total, type, 0);
     // Both bindings have to go back, otherwise client side draws after this would
     // read our index buffer instead of the app's pointer.
-    es3_functions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, (GLuint)elementbuffer);
-    es3_functions.glBindBuffer(GL_COPY_WRITE_BUFFER, (GLuint)copywritebuffer);
+    es3_functions.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
+    es3_functions.glBindBuffer(GL_COPY_WRITE_BUFFER, copywritebuffer);
 }
 
 void glMultiDrawElementsIndirect(GLenum mode, GLenum type, const void *indirect, GLsizei drawcount, GLsizei stride){

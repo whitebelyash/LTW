@@ -399,6 +399,7 @@ INTERNAL int get_buffer_index(GLenum buffer) {
         case GL_UNIFORM_BUFFER: return 6;
         case GL_SHADER_STORAGE_BUFFER: return 7;
         case GL_DRAW_INDIRECT_BUFFER: return 8;
+        case GL_ELEMENT_ARRAY_BUFFER: return 9;
         default: return -1;
     }
 }
